@@ -1,0 +1,243 @@
+<?php
+
+namespace App\Support\Clips;
+
+use App\Enums\ClipAspectRatio;
+use App\Enums\ClipQuality;
+use App\Enums\ClipStatus;
+use App\Models\Clip;
+use Illuminate\Process\Exceptions\ProcessTimedOutException;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
+use RuntimeException;
+
+final class ClipProcessor
+{
+    public function process(Clip $clip): void
+    {
+        $workDirectory = storage_path("app/clip-processing/{$clip->uuid}");
+        $sourcePattern = "{$workDirectory}/source.%(ext)s";
+        $outputFile = "{$workDirectory}/output.mp4";
+
+        File::ensureDirectoryExists($workDirectory);
+
+        try {
+            $downloadStart = max(0, $clip->start_seconds - $this->downloadBufferSeconds());
+            $downloadEnd = $clip->end_seconds + $this->downloadBufferSeconds();
+            $localStart = $clip->start_seconds - $downloadStart;
+
+            $this->runYtDlp($clip, $sourcePattern, $downloadStart, $downloadEnd);
+
+            $clip->update(['progress' => 55]);
+
+            $sourceFile = $this->sourceFile($workDirectory);
+
+            $this->runFfmpeg(
+                clip: $clip,
+                sourceFile: $sourceFile,
+                outputFile: $outputFile,
+                startSeconds: $localStart,
+                durationSeconds: $clip->end_seconds - $clip->start_seconds,
+            );
+
+            $clip->update(['progress' => 85]);
+
+            if (! File::exists($outputFile)) {
+                throw new RuntimeException('ffmpeg selesai tanpa menghasilkan file output.');
+            }
+
+            $outputPath = "clips/{$clip->uuid}.mp4";
+            $disk = $this->outputDisk();
+            $contents = File::get($outputFile);
+
+            Storage::disk($disk)->put($outputPath, $contents);
+
+            $clip->update([
+                'status' => ClipStatus::Completed,
+                'progress' => 100,
+                'output_disk' => $disk,
+                'output_path' => $outputPath,
+                'output_size_bytes' => strlen($contents),
+                'output_expires_at' => now()->addHours($this->retentionHours()),
+                'error_message' => null,
+            ]);
+        } finally {
+            File::deleteDirectory($workDirectory);
+        }
+    }
+
+    private function runYtDlp(Clip $clip, string $sourcePattern, int $downloadStart, int $downloadEnd): void
+    {
+        try {
+            $result = Process::timeout($this->processingTimeout())
+                ->run([
+                    $this->ytDlpBinary(),
+                    '--download-sections',
+                    sprintf('*%s-%s', $this->timecode($downloadStart), $this->timecode($downloadEnd)),
+                    '-f',
+                    $clip->quality->ytDlpFormat(),
+                    '--merge-output-format',
+                    'mp4',
+                    '--no-playlist',
+                    '-o',
+                    $sourcePattern,
+                    $clip->source_url,
+                ]);
+        } catch (ProcessTimedOutException $exception) {
+            throw new RuntimeException('yt-dlp terlalu lama mengambil stream video.', previous: $exception);
+        }
+
+        if ($result->failed()) {
+            throw new RuntimeException($this->processFailureMessage('yt-dlp', $result->errorOutput()));
+        }
+    }
+
+    private function runFfmpeg(Clip $clip, string $sourceFile, string $outputFile, int $startSeconds, int $durationSeconds): void
+    {
+        $command = [
+            $this->ffmpegBinary(),
+            '-y',
+            '-i',
+            $sourceFile,
+            '-ss',
+            (string) $startSeconds,
+            '-t',
+            (string) $durationSeconds,
+        ];
+
+        $videoFilter = $this->videoFilter($clip);
+
+        if ($videoFilter !== null) {
+            $command[] = '-vf';
+            $command[] = $videoFilter;
+        }
+
+        array_push(
+            $command,
+            '-c:v',
+            'libx264',
+            '-c:a',
+            'aac',
+            '-movflags',
+            '+faststart',
+            $outputFile,
+        );
+
+        try {
+            $result = Process::timeout($this->processingTimeout())
+                ->run($command);
+        } catch (ProcessTimedOutException $exception) {
+            throw new RuntimeException('ffmpeg terlalu lama memotong video.', previous: $exception);
+        }
+
+        if ($result->failed()) {
+            throw new RuntimeException($this->processFailureMessage('ffmpeg', $result->errorOutput()));
+        }
+    }
+
+    private function videoFilter(Clip $clip): ?string
+    {
+        $aspectRatio = $clip->aspect_ratio instanceof ClipAspectRatio
+            ? $clip->aspect_ratio
+            : ClipAspectRatio::Original;
+        $quality = $clip->quality instanceof ClipQuality
+            ? $clip->quality
+            : ClipQuality::Source;
+
+        $filters = collect([
+            $aspectRatio->cropFilter(),
+            $quality->scaleFilter($aspectRatio),
+        ])->filter()->values();
+
+        return $filters->isEmpty() ? null : $filters->implode(',');
+    }
+
+    private function sourceFile(string $workDirectory): string
+    {
+        $files = collect(File::glob("{$workDirectory}/source.*") ?: [])
+            ->reject(fn (string $file): bool => str_ends_with($file, '.part'))
+            ->values();
+
+        if ($files->isEmpty()) {
+            throw new RuntimeException('yt-dlp selesai tanpa menghasilkan file sumber.');
+        }
+
+        return $files->first();
+    }
+
+    private function ytDlpBinary(): string
+    {
+        $binary = config('freekliping.yt_dlp_binary');
+
+        if (! is_string($binary) || $binary === '') {
+            throw new RuntimeException('Binary yt-dlp belum dikonfigurasi.');
+        }
+
+        return $binary;
+    }
+
+    private function ffmpegBinary(): string
+    {
+        $binary = config('freekliping.ffmpeg_binary');
+
+        if (! is_string($binary) || $binary === '') {
+            throw new RuntimeException('Binary ffmpeg belum dikonfigurasi.');
+        }
+
+        return $binary;
+    }
+
+    private function outputDisk(): string
+    {
+        $disk = config('freekliping.output_disk');
+
+        if (! is_string($disk) || $disk === '') {
+            throw new RuntimeException('Output disk belum dikonfigurasi.');
+        }
+
+        return $disk;
+    }
+
+    private function processingTimeout(): int
+    {
+        $timeout = config('freekliping.processing_timeout');
+
+        return is_numeric($timeout) ? (int) $timeout : 600;
+    }
+
+    private function downloadBufferSeconds(): int
+    {
+        $seconds = config('freekliping.download_buffer_seconds');
+
+        return is_numeric($seconds) ? max(0, (int) $seconds) : 3;
+    }
+
+    private function retentionHours(): int
+    {
+        $hours = config('freekliping.retention_hours');
+
+        return is_numeric($hours) ? max(1, (int) $hours) : 1;
+    }
+
+    private function timecode(int $seconds): string
+    {
+        return sprintf(
+            '%02d:%02d:%02d',
+            intdiv($seconds, 3600),
+            intdiv($seconds % 3600, 60),
+            $seconds % 60,
+        );
+    }
+
+    private function processFailureMessage(string $processName, string $errorOutput): string
+    {
+        $message = trim($errorOutput);
+
+        if ($message === '') {
+            return "{$processName} gagal memproses klip.";
+        }
+
+        return "{$processName} gagal memproses klip: ".str($message)->limit(240);
+    }
+}
