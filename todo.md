@@ -1,6 +1,8 @@
 # FreeKliping Todo & Phase Plan
 
-Dokumen ini menjadi pegangan kerja agar implementasi FreeKliping berjalan sesuai PRD dan `technical-flow.md`. Urutan fase dibuat dari yang paling rendah risiko sampai backend video sungguhan yang membutuhkan VPS, queue worker, `yt-dlp`, `ffmpeg`, dan pertimbangan legal.
+Dokumen ini menjadi pegangan kerja agar implementasi FreeKliping berjalan sesuai PRD dan `technical-flow.md`. Urutan fase dibuat dari pekerjaan dengan risiko paling rendah sampai backend video production yang membutuhkan VPS, queue worker, `yt-dlp`, `ffmpeg`, hardening, dan pertimbangan legal.
+
+Dokumen diperbarui berdasarkan audit repository pada 20 Juli 2026. Audit menemukan bahwa beberapa checklist Phase 1 sudah selesai di kode tetapi belum ditandai, sementara sisa starter-kit Laravel masih aktif dan perlu dibersihkan secara bertahap.
 
 ## Prinsip Eksekusi
 
@@ -9,20 +11,23 @@ Dokumen ini menjadi pegangan kerja agar implementasi FreeKliping berjalan sesuai
 - Backend video sungguhan tidak boleh berjalan di request HTTP utama; proses berat wajib lewat queue worker.
 - Karena aplikasi tanpa login, rate limit dan pembatasan durasi harus dibuat sebelum fitur generate sungguhan dibuka publik.
 - Risiko legal/ToS YouTube harus diputuskan sebelum rilis publik fitur download video sungguhan.
+- Cleanup starter-kit harus dilakukan dari route dan dependency terlebih dahulu, bukan langsung menghapus folder secara massal.
+- Setiap tahap cleanup wajib diikuti pengecekan route, TypeScript, lint, build, dan test.
 
 ## Status Ringkas
 
-| Fase | Fokus | Status | Prioritas |
-|---|---|---|---|
-| 0 | Keputusan produk, stack, dan deployment | Selesai | P0 |
-| 1 | Prototype UI tanpa login | Sebagian besar selesai | P0 |
-| 2 | Metadata YouTube sungguhan via yt-dlp | Selesai | P0 |
-| 3 | Pipeline generate clip sungguhan | Selesai | P0 |
-| 4 | VPS deployment siap worker | Belum dimulai | P0 |
-| 5 | Hardening anti-abuse dan cleanup | Belum dimulai | P1 |
-| 6 | Export polish, subtitle, dan smart crop | Belum dimulai | P1/P2 |
-| 7 | Storage dan cost optimization | Belum dimulai | P2 |
-| 8 | Monetisasi dan public launch readiness | Belum dimulai | P2 |
+| Fase | Fokus                                               | Status         | Prioritas |
+| ---- | --------------------------------------------------- | -------------- | --------- |
+| 0    | Keputusan produk, stack, dan deployment             | Selesai        | P0        |
+| 1    | Prototype UI tanpa login                            | Selesai        | P0        |
+| 1A   | Cleanup starter-kit auth, team, dashboard, settings | Selesai        | P0        |
+| 2    | Metadata YouTube sungguhan via yt-dlp               | Selesai        | P0        |
+| 3    | Pipeline generate clip sungguhan                    | Selesai        | P0        |
+| 4    | VPS deployment siap worker                          | Belum dimulai  | P0        |
+| 5    | Hardening anti-abuse dan cleanup output             | Belum dimulai  | P1        |
+| 6    | Export polish, subtitle, dan smart crop             | Belum dimulai  | P1/P2     |
+| 7    | Storage dan cost optimization                       | Belum dimulai  | P2        |
+| 8    | Monetisasi dan public launch readiness              | Belum dimulai  | P2        |
 
 ## Phase 0 - Product & Technical Decision
 
@@ -48,250 +53,441 @@ Exit criteria:
 
 Tujuan: membuktikan UX utama sebelum investasi backend video.
 
+### Status fitur utama
+
 - [x] Tampilan utama mengikuti referensi ClipStudio.
 - [x] User bisa paste URL YouTube.
 - [x] UI menampilkan state metadata video.
 - [x] Timeline visual tersedia.
 - [x] Input timecode numerik tersedia dan sinkron dengan timeline.
-- [ ] Perbaiki UI editor agar lebih profesional memakai komponen shadcn yang tersedia.
-- [ ] Tambahkan input manual menit/detik eksplisit untuk Start dan End.
-- [ ] Tambahkan quick length preset agar user cepat memilih durasi umum.
+- [x] Tambahkan input manual menit/detik eksplisit untuk Start dan End.
+- [x] Tambahkan quick length preset agar user cepat memilih durasi umum.
 - [x] Tombol Generate clip menampilkan feedback progres.
 - [x] Tombol Download clip tersedia di prototype.
 - [x] Halaman Privacy tersedia.
 - [x] Halaman Terms tersedia.
-- [ ] Audit responsive mobile/tablet untuk semua state.
-- [ ] Audit keyboard navigation dan visible focus state.
-- [ ] Uji state error, empty, loading, success di UI.
 
-Exit criteria:
+### 1.1 Refactor struktur frontend
 
-- Pengguna bisa memahami flow dari paste link sampai download tanpa instruksi tambahan.
-- Semua state penting terlihat jelas.
-- Build frontend lulus tanpa error TypeScript/lint.
+- [x] Pecah `resources/js/pages/welcome.tsx` menjadi komponen yang lebih kecil.
+- [x] Buat folder `resources/js/features/clip-editor/`.
+- [x] Pindahkan type clip editor ke `clip-editor.types.ts`.
+- [x] Pindahkan helper timecode dan range ke `clip-editor.utils.ts`.
+- [x] Pindahkan daftar ratio, quality, dan preset ke `clip-editor.constants.ts`.
+- [x] Pertahankan `welcome.tsx` hanya untuk state utama, request metadata, generate, polling, dan komposisi halaman.
+
+Struktur target:
+
+```text
+resources/js/features/clip-editor/
+├── components/
+│   ├── url-input.tsx
+│   ├── empty-state.tsx
+│   ├── video-preview.tsx
+│   ├── editor-panel.tsx
+│   ├── clip-timeline.tsx
+│   ├── time-range-controls.tsx
+│   ├── manual-time-input.tsx
+│   ├── quick-length-presets.tsx
+│   ├── export-options.tsx
+│   ├── generation-progress.tsx
+│   └── clip-result-card.tsx
+├── clip-editor.constants.ts
+├── clip-editor.types.ts
+└── clip-editor.utils.ts
+```
+
+### 1.2 Profesionalisasi UI dengan shadcn
+
+- [x] Ganti card manual utama dengan `Card`, `CardHeader`, `CardContent`, dan `CardFooter`.
+- [x] Ganti error manual dengan `Alert`, `AlertTitle`, dan `AlertDescription`.
+- [x] Gunakan `Progress` untuk status generate.
+- [x] Gunakan `Skeleton` untuk metadata loading agar layout tidak meloncat.
+- [x] Gunakan `Separator` untuk pembagian section editor.
+- [x] Gunakan `Collapsible` untuk input timecode lanjutan.
+- [ ] Gunakan `Tooltip` untuk icon button yang tidak memiliki label visual.
+- [x] Ganti semua elemen `<button>` manual dengan komponen `Button` apabila tidak ada alasan khusus.
+- [x] Hapus styling warna hardcoded utama dari komponen.
+- [x] Pindahkan warna FreeKliping ke semantic token di `resources/css/app.css`.
+- [x] Gunakan class seperti `bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`, `bg-primary`, dan `text-primary-foreground`.
+
+Komponen tambahan yang direncanakan:
+
+```bash
+npx shadcn@latest add progress skeleton separator tooltip collapsible
+```
+
+### 1.3 Sederhanakan hierarki editor
+
+- [x] Jadikan input menit/detik sebagai kontrol waktu utama.
+- [x] Pindahkan input `MM:SS` atau `HH:MM:SS` ke bagian `Advanced timecode`.
+- [x] Hapus informasi Start dan End yang tampil berulang di beberapa lokasi.
+- [x] Tampilkan ringkasan tunggal seperti `00:38 → 00:58 · 20 seconds`.
+- [x] Letakkan export settings setelah pemilihan range waktu.
+- [x] Letakkan Generate clip di `CardFooter` sebagai primary action.
+- [x] Pastikan label dan istilah UI konsisten antara bahasa Inggris atau bahasa Indonesia.
+
+### 1.4 Quick length preset
+
+- [x] Tambahkan active state berdasarkan durasi clip saat ini.
+- [x] Tambahkan `aria-pressed` pada preset aktif.
+- [x] Gunakan label singkat `15s`, `30s`, `60s`, dan `3m`.
+- [x] Tambahkan preset `Max` jika durasi video lebih pendek dari batas maksimal.
+- [x] Pastikan preset di dekat akhir video tetap menghasilkan durasi yang benar.
+
+### 1.5 Pisahkan error berdasarkan konteks
+
+- [x] Ganti satu state error global menjadi minimal `metadataError` dan `generationError`.
+- [x] Tampilkan metadata error di dekat URL input.
+- [x] Tampilkan generation error di dalam editor, dekat tombol Generate.
+- [x] Pertahankan rename error di dalam result card.
+- [x] Tambahkan tombol `Try again` untuk generation error.
+- [x] Pastikan failure generate tidak menghapus pilihan range dan export user.
+
+### 1.6 Audit responsive mobile dan tablet
+
+Viewport minimum yang wajib diuji:
+
+```text
+320 × 568
+375 × 667
+390 × 844
+768 × 1024
+820 × 1180
+1024 × 768
+1440 × 900
+```
+
+Checklist:
+
+- [x] Tidak ada horizontal overflow pada lebar 320 px.
+- [x] URL form nyaman dipakai pada mobile.
+- [x] Video preview tidak memotong judul atau metadata penting.
+- [x] Jumlah label tick timeline dikurangi atau disembunyikan pada mobile.
+- [x] Start dan End input tersusun satu kolom pada mobile.
+- [x] Start dan End input tersusun dua kolom pada tablet jika ruang cukup.
+- [x] Length stat tidak membuat tablet layout terlalu panjang.
+- [x] Ratio dan quality menggunakan Select pada mobile dan ToggleGroup pada desktop.
+- [x] Quick preset memiliki tap target yang cukup besar.
+- [x] Save, Download, dan New clip menjadi full-width pada mobile.
+- [x] Primary action Download tampil lebih dominan pada success state.
+- [x] Loading overlay tidak keluar dari editor card.
+- [x] Long title, long filename, dan error panjang tidak merusak layout.
+
+### 1.7 Keyboard navigation dan accessibility
+
+- [x] Semua tombol, input, link, select, toggle, dan slider memiliki visible focus state.
+- [x] Tidak ada tombol manual yang kehilangan `focus-visible` ring.
+- [x] Urutan Tab mengikuti flow URL → editor → export → generate → result.
+- [x] `Shift+Tab` bekerja tanpa focus trap.
+- [x] Range slider dapat digerakkan dengan arrow key.
+- [x] Enter pada URL menjalankan Load video.
+- [x] Enter pada timecode menerapkan nilai.
+- [x] Escape pada timecode membatalkan perubahan.
+- [x] Disabled control tidak menerima fokus.
+- [x] Container editor menggunakan `aria-busy` saat generating.
+- [x] Progress menggunakan `role=status` atau semantic progress yang tepat.
+- [x] Progress announcement menggunakan `aria-live=polite`.
+- [x] Kontrol editor di belakang loading overlay tidak bisa difokuskan.
+- [ ] Fokus berpindah ke heading editor setelah metadata berhasil.
+- [ ] Fokus berpindah ke alert setelah terjadi error.
+- [ ] Fokus berpindah ke heading `Clip ready` setelah generate selesai.
+
+### 1.8 State coverage UI
+
+- [x] Empty state: URL input tampil, editor belum tampil.
+- [x] Metadata loading: input disabled, skeleton atau loading card tampil.
+- [x] Metadata error: alert jelas dan tombol load kembali aktif.
+- [x] Ready state: preview, timeline, time controls, dan export options tampil.
+- [x] Invalid range: pesan dekat time controls dan Generate disabled.
+- [x] Clip too long: durasi warning dan batas maksimum terlihat.
+- [x] Generating: progress terlihat dan seluruh kontrol terkait disabled.
+- [x] Generation error: alert dalam editor dan tombol retry tersedia.
+- [x] Success: filename, durasi, ratio, quality, Save, Download, dan New clip tampil.
+- [x] Rename saving: tombol Save menampilkan loading.
+- [x] Rename error: alert tampil dekat filename.
+- [x] Reset: URL, metadata, range, progress, result, dan error kembali bersih.
+
+### 1.9 Test manual range dan input
+
+- [x] Start tidak dapat melewati End.
+- [x] End tidak dapat lebih kecil dari Start.
+- [x] End tidak dapat melebihi durasi video.
+- [x] Seconds tidak dapat melebihi 59.
+- [x] Nilai negatif menjadi 0.
+- [x] Video kurang dari 15 detik tetap memiliki preset yang valid.
+- [x] Timeline, slider, input menit/detik, dan timecode selalu sinkron.
+- [x] Generate tidak membuat request ganda saat tombol diklik berulang.
+- [x] Polling berhenti saat completed atau failed.
+- [x] Polling failure menampilkan error yang bisa dipahami.
+- [x] Filename kosong tidak dapat disimpan.
+- [x] Rename berhasil memperbarui nama hasil.
+- [x] New clip mereset seluruh flow.
+
+### 1.10 Build validation
+
+- [x] Jalankan `npm run format`.
+- [x] Jalankan `npm run lint:check`.
+- [x] Jalankan `npm run types:check`.
+- [x] Jalankan `npm run build`.
+- [x] Jalankan `composer run ci:check`.
+
+Exit criteria Phase 1:
+
+- Pengguna memahami flow paste link sampai download tanpa instruksi tambahan.
+- Semua state penting terlihat jelas dan muncul dekat tindakan terkait.
+- Editor nyaman digunakan pada mobile, tablet, dan desktop.
+- Semua kontrol utama dapat digunakan dengan keyboard.
+- Tidak ada horizontal overflow pada viewport minimum.
+- Build frontend lulus tanpa error TypeScript, lint, atau format.
+
+## Phase 1A - Cleanup Starter-kit yang Tidak Relevan
+
+Tujuan: menghapus subsystem Laravel React starter-kit yang tidak digunakan FreeKliping tanpa merusak route clip, Wayfinder, session, build, atau test.
+
+### 1A.1 Lepaskan route yang tidak relevan
+
+- [x] Hapus import `DashboardController` dari `routes/web.php`.
+- [x] Hapus import `TeamInvitationController` dari `routes/web.php`.
+- [x] Hapus import `EnsureTeamMembership` dari `routes/web.php`.
+- [x] Hapus `require __DIR__.'/auth.php';`.
+- [x] Hapus route dashboard dengan prefix `{current_team}`.
+- [x] Hapus route accept dan decline invitation.
+- [x] Hapus `require __DIR__.'/settings.php';`.
+- [x] Jalankan `php artisan route:list`.
+
+### 1A.2 Sederhanakan bootstrap dan shared props
+
+- [x] Hapus `SetTeamUrlDefaults` dari `bootstrap/app.php`.
+- [x] Hapus `HandleAppearance` jika FreeKliping diputuskan dark-only.
+- [x] Hapus cookie exception `sidebar_state`.
+- [x] Hapus cookie exception `appearance` jika appearance setting dihapus.
+- [x] Hapus `FortifyServiceProvider` dari `bootstrap/providers.php`.
+- [x] Hapus shared prop `auth`, `sidebarOpen`, `currentTeam`, dan `teams`.
+- [x] Pertahankan shared prop `name` jika masih digunakan.
+
+### 1A.3 Bersihkan `welcome.tsx`
+
+- [x] Hapus pembacaan `auth` dan `currentTeam`.
+- [x] Hapus perhitungan `dashboardUrl`.
+- [x] Hapus import route `dashboard`.
+- [x] Hapus conditional link Dashboard dari header.
+- [x] Pertahankan pembacaan `maxClipLength`.
+
+### 1A.4 Hapus authentication dan Fortify
+
+- [x] Hapus dependency `laravel/fortify`.
+- [x] Jalankan `composer dump-autoload`.
+- [x] Pastikan tidak ada import Fortify tersisa.
+
+### 1A.5 Hapus dashboard starter-kit
+
+- [x] Hapus semua file dashboard starter-kit.
+
+### 1A.6 Hapus subsystem Teams
+
+- [x] Hapus seluruh subsystem Teams (controllers, models, concerns, enums, data, rules, policies, notifications, requests, factories, tests, types).
+
+### 1A.7 Hapus profile, security, dan settings
+
+- [x] Hapus seluruh subsystem Settings (controllers, requests, pages, layouts, tests).
+
+### 1A.8 Hapus user model, factory, dan seeder
+
+- [x] Hapus `app/Models/User.php`.
+- [x] Hapus `database/factories/UserFactory.php`.
+- [x] Hapus pembuatan Test User dari `DatabaseSeeder`.
+- [x] Pastikan model Clip tidak memiliki dependency ke User.
+
+### 1A.9 Bersihkan migration
+
+- [x] Hapus migration team, membership, invitation, current team, 2FA, dan passkey.
+- [x] Hapus tabel `users` dan `password_reset_tokens` jika akun benar-benar tidak digunakan.
+- [x] Pertahankan tabel `sessions` jika `SESSION_DRIVER=database`.
+- [ ] Untuk database existing, buat migration drop yang aman.
+
+### 1A.10 Hapus layout sidebar dan navigation starter-kit
+
+- [x] Hapus semua layout sidebar, navigation, auth layout, dan komponen starter-kit lainnya.
+- [x] Hapus hooks yang tidak digunakan (use-appearance, use-mobile, use-initials, dll).
+- [x] Hapus UI primitives yang tidak digunakan (sidebar, avatar, breadcrumb, sheet, dll).
+
+### 1A.11 Bersihkan types dan generated Wayfinder
+
+- [x] Hapus type auth, teams, dan navigation yang tidak digunakan.
+- [x] Perbarui `resources/js/types/index.ts`.
+- [x] Regenerasikan Wayfinder.
+- [x] Jangan hapus generated action `ClipController`.
+- [x] Pertahankan route home, privacy, terms, dan clip routes.
+
+### 1A.12 Perbarui halaman legal
+
+- [x] Perbarui Privacy Policy sesuai metadata backend, processing, temporary storage, retention, dan IP logging.
+- [x] Perbarui Terms sesuai pemrosesan video aktual.
+- [x] Tambahkan tanggung jawab user atas hak konten sumber.
+- [x] Tambahkan disclaimer kebijakan pihak ketiga dan YouTube.
+
+### 1A.13 Validasi cleanup
+
+- [x] `composer dump-autoload`
+- [x] `php artisan route:list`
+- [x] `npm run format`
+- [x] `npm run lint:check`
+- [x] `npm run types:check`
+- [x] `npm run build`
+- [x] `php artisan test`
+
+Exit criteria Phase 1A:
+
+- Tidak ada route auth, dashboard, settings, team, atau invitation.
+- Tidak ada shared prop auth/team/sidebar.
+- Fortify sudah dilepas.
+- Session tetap berfungsi.
+- Semua test clip tetap lulus.
+- TypeScript, lint, format, dan build lulus.
 
 ## Phase 2 - Real YouTube Metadata via yt-dlp
 
-Tujuan: mengganti metadata mock dengan metadata sungguhan memakai `yt-dlp` terlebih dahulu agar tidak perlu YouTube Data API key di fase awal private testing.
-
-- [x] Tambahkan konfigurasi binary dan timeout metadata `yt-dlp`.
-- [x] Buat parser URL YouTube untuk `youtube.com`, `youtu.be`, dan Shorts.
-- [x] Buat endpoint metadata.
-- [x] Validasi format URL sebelum menjalankan `yt-dlp`.
-- [x] Ambil judul, channel, durasi, dan thumbnail dari `yt-dlp --dump-single-json`.
-- [x] Tolak video yang tidak ditemukan, private, unavailable, atau restricted.
-- [x] Sambungkan UI Load video ke endpoint metadata.
-- [x] Tampilkan pesan error yang jelas saat binary `yt-dlp` belum dikonfigurasi.
-- [x] Tambahkan test untuk URL valid, URL invalid, video not found, dan response metadata sukses.
-
-Exit criteria:
-
-- UI tidak lagi bergantung pada metadata mock.
-- Metadata real muncul dari URL YouTube publik.
-- Request invalid ditolak sebelum masuk proses berat.
-- Test backend metadata lulus.
+- [x] Konfigurasi binary dan timeout.
+- [x] Parser URL YouTube.
+- [x] Endpoint metadata.
+- [x] Validasi URL.
+- [x] Ambil metadata nyata.
+- [x] Tolak video unavailable/restricted.
+- [x] Sambungkan UI.
+- [x] Tampilkan error konfigurasi.
+- [x] Tambahkan test backend metadata.
 
 ## Phase 3 - Real Clip Generation Pipeline
 
-Tujuan: membuat tombol Generate clip benar-benar menghasilkan file MP4.
-
-- [x] Buat tabel `clips` untuk menyimpan job clip.
-- [x] Simpan source URL, video ID, start/end seconds, status, progress, error, output path, dan expiry.
-- [x] Buat endpoint submit clip.
-- [x] Validasi durasi clip tidak melebihi batas maksimum.
-- [x] Validasi `end_seconds` tidak melebihi durasi video.
-- [x] Dispatch Laravel queued job setelah validasi metadata berhasil.
-- [x] Buat worker job untuk menjalankan `yt-dlp`.
-- [x] Gunakan `--download-sections` dengan buffer kecil di sekitar start/end.
-- [x] Buat tahap `ffmpeg` untuk trim presisi dan encode MP4.
-- [x] Simpan hasil ke storage sementara.
-- [x] Buat endpoint status polling.
-- [x] Buat signed download URL untuk hasil yang sudah selesai.
-- [x] Sambungkan UI Generate clip ke endpoint submit dan polling status.
-- [x] Ganti dummy download dengan signed URL backend.
-- [x] Tambahkan handling failed job dengan pesan error yang bisa tampil di UI.
-- [x] Tambahkan test untuk validasi durasi, dispatch job, status response, dan download URL.
-
-Exit criteria:
-
-- Generate clip berjalan async lewat queue, bukan blocking request.
-- UI bisa polling status sampai completed atau failed.
-- File MP4 hasil bisa diunduh melalui signed URL.
-- Jika `yt-dlp` atau `ffmpeg` gagal, UI menampilkan error yang jelas.
+- [x] Tabel clips.
+- [x] Endpoint submit.
+- [x] Queue job.
+- [x] yt-dlp download sections.
+- [x] ffmpeg precise trim.
+- [x] Temporary storage.
+- [x] Status polling.
+- [x] Signed download URL.
+- [x] UI polling.
+- [x] Rename file.
+- [x] Failure handling.
+- [x] Test pipeline.
 
 ## Phase 4 - VPS Deployment
 
-Tujuan: menjalankan aplikasi di environment yang cocok untuk video processing.
-
-- [ ] Siapkan VPS minimal 2 GB RAM.
-- [ ] Install Nginx, PHP-FPM, Composer, Node.js, database, Redis, Supervisor.
-- [ ] Install `ffmpeg`.
-- [ ] Install dan pin versi `yt-dlp`.
-- [ ] Konfigurasi `.env` production.
-- [ ] Jalankan migration.
-- [ ] Jalankan build frontend production.
-- [ ] Konfigurasi Supervisor untuk Laravel queue worker.
-- [ ] Konfigurasi Laravel scheduler via cron.
-- [ ] Pastikan upload/output directory writable.
-- [ ] Uji end-to-end dari URL YouTube sampai file download.
-- [ ] Dokumentasikan perintah deploy minimal untuk server ini.
-
-Exit criteria:
-
-- Aplikasi bisa diakses dari domain.
-- Queue worker tetap hidup setelah restart.
-- `yt-dlp` dan `ffmpeg` bisa dieksekusi oleh user aplikasi.
-- Clip berhasil dibuat di server production/staging.
+- [ ] VPS minimal 2 GB RAM.
+- [ ] Nginx, PHP-FPM, Composer, Node.js, database, Redis, Supervisor.
+- [ ] Install ffmpeg.
+- [ ] Install dan pin yt-dlp.
+- [ ] Konfigurasi `.env`.
+- [ ] Migration dan build production.
+- [ ] Supervisor queue worker.
+- [ ] Scheduler cron.
+- [ ] Permission storage.
+- [ ] End-to-end test.
+- [ ] Dokumentasi deploy.
 
 ## Phase 5 - Abuse Control, Cleanup, and Reliability
 
-Tujuan: mencegah biaya server bocor dan menjaga sistem tetap stabil.
-
-- [ ] Tambahkan rate limit per IP untuk metadata dan generate clip.
-- [ ] Batasi concurrency worker, rekomendasi awal: 1 job video sekaligus di VPS kecil.
-- [ ] Tambahkan cleanup file hasil sesuai retention window.
-- [ ] Tambahkan cleanup job record lama.
-- [ ] Tambahkan retry terbatas untuk job gagal.
-- [ ] Tambahkan timeout proses `yt-dlp` dan `ffmpeg`.
-- [ ] Batasi ukuran/durasi video sumber jika diperlukan.
-- [ ] Tambahkan logging durasi job, ukuran output, dan failure reason.
-- [ ] Siapkan pesan overload: "coba lagi nanti".
-- [ ] Evaluasi CAPTCHA ringan jika abuse mulai muncul.
-
-Exit criteria:
-
-- File lama otomatis terhapus.
-- Job berat tidak berjalan tanpa batas.
-- Server tetap responsif saat ada job gagal atau lambat.
-- Ada log cukup untuk debugging masalah production.
+- [ ] Rate limit per IP.
+- [ ] Batasi worker concurrency.
+- [ ] Cleanup output.
+- [ ] Cleanup record lama.
+- [ ] Retry terbatas.
+- [ ] Timeout yt-dlp dan ffmpeg.
+- [ ] Logging proses.
+- [ ] Pesan overload.
+- [ ] Evaluasi CAPTCHA.
 
 ## Phase 6 - Export Polish, Subtitle, and Smart Crop
 
-Tujuan: meningkatkan hasil export agar cocok untuk Short/Reels/TikTok tanpa membuat MVP awal terlalu berat.
+### 6A - UI Export Polish
 
-### 6A - UI Export Polish (P1)
+- [x] Ratio export.
+- [x] Quality export.
+- [x] Rename file.
+- [x] Input manual menit/detik.
+- [ ] Rapikan UI dengan shadcn.
+- [ ] Preview ringkas export.
 
-- [x] Tambahkan pilihan rasio export: Original, 16:9, 9:16, 1:1.
-- [x] Tambahkan pilihan kualitas export: Source, 480p, 720p, 1080p.
-- [x] Tambahkan rename file setelah clip selesai.
-- [ ] Rapikan UI editor dengan komponen shadcn agar lebih profesional dan mudah dipakai.
-- [ ] Tambahkan input manual menit/detik untuk menentukan bagian video.
-- [ ] Tambahkan preview ringkas pilihan export sebelum generate.
+### 6B - Subtitle YouTube Caption
 
-Exit criteria:
+- [ ] Deteksi caption.
+- [ ] Prioritaskan manual caption.
+- [ ] Auto caption sebagai fallback.
+- [ ] Opsi enable/disable.
+- [ ] Convert caption.
+- [ ] Burn subtitle.
+- [ ] State caption unavailable.
 
-- User bisa memilih waktu, rasio, kualitas, dan nama file tanpa kebingungan.
-- UI editor nyaman dipakai di desktop dan mobile.
-- Build frontend lulus tanpa error TypeScript/lint.
+### 6C - Smart Crop
 
-### 6B - Subtitle dari YouTube Caption (P1)
+- [ ] Riset OpenCV, MediaPipe, atau YOLO ringan.
+- [ ] Center crop dan Smart crop.
+- [ ] Subject detection.
+- [ ] Crop window.
+- [ ] Smoothing.
+- [ ] Fallback center crop.
+- [ ] Benchmark.
 
-- [ ] Cek ketersediaan subtitle/caption via `yt-dlp`.
-- [ ] Prioritaskan manual caption jika tersedia.
-- [ ] Gunakan auto caption dari YouTube sebagai fallback jika tersedia.
-- [ ] Tambahkan opsi enable/disable subtitle sebelum generate.
-- [ ] Convert caption ke format yang bisa dipakai `ffmpeg`.
-- [ ] Burn subtitle ke video export jika user memilih subtitle.
-- [ ] Tampilkan status jika video tidak punya caption.
+### 6D - Whisper
 
-Exit criteria:
-
-- Video dengan caption YouTube bisa diexport dengan subtitle.
-- Video tanpa caption tetap bisa diproses tanpa error.
-- User mendapat pesan jelas saat subtitle tidak tersedia.
-
-### 6C - Smart Crop Subject Detection (P2)
-
-- [ ] Riset pendekatan subject detection yang cocok untuk VPS murah: OpenCV, MediaPipe, atau YOLO ringan.
-- [ ] Buat mode export baru: Center crop dan Smart crop.
-- [ ] Detect posisi wajah/orang pada sample frame.
-- [ ] Hitung crop window untuk rasio 9:16 atau 1:1.
-- [ ] Tambahkan smoothing agar crop tidak bergerak patah-patah.
-- [ ] Pastikan fallback ke center crop jika subject tidak terdeteksi.
-- [ ] Benchmark durasi proses dan penggunaan CPU/RAM di VPS target.
-
-Exit criteria:
-
-- Smart crop hanya aktif jika user memilih mode tersebut.
-- Kalau deteksi gagal, hasil tetap aman dengan center crop.
-- Beban processing masih masuk akal untuk VPS murah.
-
-### 6D - Auto Subtitle via Whisper (P2)
-
-- [ ] Evaluasi `faster-whisper` atau alternatif transcription ringan.
-- [ ] Tentukan model default yang realistis untuk VPS murah.
-- [ ] Tambahkan queue step transcription setelah clip source tersedia.
-- [ ] Generate subtitle dari audio jika YouTube caption tidak tersedia.
-- [ ] Tambahkan cache subtitle per clip/job bila diperlukan.
-- [ ] Benchmark waktu proses untuk clip 30s, 60s, dan 180s.
-
-Exit criteria:
-
-- Subtitle otomatis tetap opsional.
-- Server tidak overload saat transcription berjalan.
-- Ada fallback dan pesan error yang jelas jika transcription gagal.
-
-Catatan keputusan:
-
-- Untuk MVP, gunakan center crop dulu untuk rasio vertical/square.
-- Subtitle dari YouTube caption lebih dulu daripada Whisper karena lebih murah dan cepat.
-- Smart crop dan Whisper masuk advanced feature setelah flow dasar stabil.
+- [ ] Evaluasi faster-whisper.
+- [ ] Tentukan model.
+- [ ] Queue transcription.
+- [ ] Generate subtitle audio.
+- [ ] Cache.
+- [ ] Benchmark.
 
 ## Phase 7 - Storage and Cost Optimization
 
-Tujuan: menekan biaya setelah penggunaan mulai nyata.
-
-- [ ] Mulai dengan local storage untuk MVP kecil.
-- [ ] Evaluasi Cloudflare R2 atau S3-compatible storage saat storage/bandwidth mulai naik.
-- [ ] Pindahkan output clip ke object storage jika local disk mulai membatasi.
-- [ ] Gunakan signed temporary URL dari object storage.
-- [ ] Evaluasi CDN hanya jika download mulai besar.
-- [ ] Monitor biaya VPS, storage, bandwidth, dan CPU encoding.
-
-Exit criteria:
-
-- Biaya operasional bisa diprediksi.
-- Storage tidak memenuhi disk VPS.
-- Download tetap cepat tanpa membebani server web utama.
+- [ ] Local storage untuk MVP.
+- [ ] Evaluasi R2/S3.
+- [ ] Migrasi output ke object storage.
+- [ ] Signed object URL.
+- [ ] Evaluasi CDN.
+- [ ] Monitor biaya.
 
 ## Phase 8 - Monetization and Public Launch Readiness
 
-Tujuan: memastikan produk siap dipakai publik tanpa mengorbankan prinsip gratis.
-
-- [ ] Tambahkan link Saweria/donasi yang tidak mengganggu flow utama.
-- [ ] Perbarui Privacy Policy sesuai backend sungguhan.
-- [ ] Perbarui Terms of Service sesuai risiko pemrosesan video.
-- [ ] Tambahkan disclaimer hak penggunaan konten.
-- [ ] Tentukan batas penggunaan publik.
-- [ ] Lakukan review legal/ToS sebelum promosi publik.
-- [ ] Siapkan halaman status sederhana atau pesan maintenance.
-
-Exit criteria:
-
-- Pengguna memahami batasan dan tanggung jawab penggunaan.
-- Kebijakan privacy/terms sesuai perilaku aplikasi sebenarnya.
-- Biaya server punya jalur pendanaan minimal.
+- [ ] Saweria/donasi.
+- [ ] Privacy Policy aktual.
+- [ ] Terms aktual.
+- [ ] Disclaimer hak konten.
+- [ ] Batas penggunaan publik.
+- [ ] Legal review.
+- [ ] Maintenance/status page.
 
 ## Urutan Kerja Terdekat
 
-1. Selesaikan UI editor dari Phase 1 dan Phase 6A.
-2. Siapkan Phase 4: deploy ke VPS dengan worker.
-3. Buka Phase 5 sebelum aplikasi dipakai publik.
-4. Implement subtitle dari YouTube caption di Phase 6B.
-5. Evaluasi smart crop dan Whisper setelah MVP stabil.
+1. Buat branch Phase 1 dan Phase 1A.
+2. Pecah `welcome.tsx`.
+3. Pisahkan metadata error dan generation error.
+4. Sederhanakan editor dan migrasikan ke semantic shadcn tokens.
+5. Audit responsive, keyboard, dan seluruh state.
+6. Jalankan build validation.
+7. Cleanup starter-kit secara bertahap.
+8. Perbarui Privacy dan Terms.
+9. Validasi cleanup.
+10. Siapkan VPS deployment.
+11. Hardening sebelum public use.
+12. Subtitle YouTube caption.
+13. Smart crop dan Whisper setelah MVP stabil.
 
 ## Catatan Keputusan Saat Ini
 
 - Stack MVP: Laravel + Inertia React.
-- Queue production: Redis direkomendasikan.
-- Queue local/dev: database queue masih boleh untuk sederhana.
-- Hosting: VPS murah lebih cocok daripada shared cPanel.
+- UI: shadcn/ui style `new-york`.
+- Queue production: Redis.
+- Queue local/dev: database queue.
+- Hosting: VPS.
 - Storage awal: local disk.
-- Storage lanjutan: S3-compatible, Cloudflare R2 kandidat murah.
-- Metadata awal: `yt-dlp`, tanpa YouTube Data API key.
-- Generate clip: Laravel queued job menjalankan `yt-dlp` + `ffmpeg`.
-- Download hasil: signed URL dari backend.
-- Login/register: tidak dipakai untuk pengalaman publik.
-- Crop rasio vertical/square awal: center crop.
-- Subtitle otomatis awal: ambil dari YouTube caption jika tersedia.
-- Smart crop subject detection dan Whisper: advanced feature, bukan MVP awal.
+- Storage lanjutan: S3-compatible/R2.
+- Metadata: yt-dlp.
+- Generate: queued yt-dlp + ffmpeg.
+- Download: signed URL.
+- Login/register: tidak digunakan.
+- Crop awal: center crop.
+- Subtitle awal: YouTube caption.
+- Smart crop dan Whisper: advanced feature.
+- Privacy dan Terms harus diperbarui.
