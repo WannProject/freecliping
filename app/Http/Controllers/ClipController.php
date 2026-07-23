@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Enums\ClipAspectRatio;
 use App\Enums\ClipQuality;
 use App\Enums\ClipStatus;
-use App\Http\Requests\UpdateClipFilenameRequest;
 use App\Http\Requests\StoreClipMetadataRequest;
 use App\Http\Requests\StoreClipRequest;
+use App\Http\Requests\UpdateClipFilenameRequest;
 use App\Jobs\ProcessClip;
 use App\Models\Clip;
 use App\Support\Clips\YouTubeMetadataClient;
@@ -41,6 +41,10 @@ class ClipController extends Controller
 
     public function store(StoreClipRequest $request, YouTubeMetadataClient $metadataClient): JsonResponse
     {
+        if ($overloaded = $this->capacityResponse($request)) {
+            return $overloaded;
+        }
+
         try {
             $video = $metadataClient->fetch($request->validated('url'));
         } catch (RuntimeException $exception) {
@@ -70,6 +74,7 @@ class ClipController extends Controller
             'end_seconds' => $endSeconds,
             'aspect_ratio' => $request->enum('aspect_ratio', ClipAspectRatio::class) ?? ClipAspectRatio::Original,
             'quality' => $request->enum('quality', ClipQuality::class) ?? ClipQuality::Source,
+            'subtitles_enabled' => (bool) $request->boolean('subtitles_enabled'),
             'status' => ClipStatus::Queued,
             'progress' => 5,
             'requested_ip' => $request->ip(),
@@ -127,6 +132,32 @@ class ClipController extends Controller
     }
 
     /**
+     * Reject new clips before they reach yt-dlp when capacity is saturated.
+     * Returns a 429 when the IP has too many in-flight clips, or a 503 when
+     * the global queue is overloaded.
+     */
+    private function capacityResponse(Request $request): ?JsonResponse
+    {
+        $pendingForIp = Clip::query()->pendingForIp($request->ip())->count();
+
+        if ($pendingForIp >= (int) config('freekliping.max_pending_per_ip', 3)) {
+            return response()->json([
+                'message' => 'Kamu masih punya klip yang sedang diproses. Tunggu sampai selesai sebelum membuat klip baru.',
+            ], 429);
+        }
+
+        $pending = Clip::query()->pending()->count();
+
+        if ($pending >= (int) config('freekliping.max_concurrent_clips', 10)) {
+            return response()->json([
+                'message' => 'Server sedang menangani banyak permintaan. Coba lagi dalam beberapa saat.',
+            ], 503);
+        }
+
+        return null;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function clipPayload(Clip $clip): array
@@ -140,6 +171,7 @@ class ClipController extends Controller
             'aspectRatio' => $clip->aspect_ratio->value,
             'quality' => $clip->quality->value,
             'duration' => $clip->end_seconds - $clip->start_seconds,
+            'subtitleStatus' => $clip->subtitle_status?->value,
             'sizeMb' => $clip->output_size_bytes
                 ? round($clip->output_size_bytes / 1024 / 1024, 1)
                 : null,

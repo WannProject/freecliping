@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Enums\ClipAspectRatio;
 use App\Enums\ClipQuality;
 use App\Enums\ClipStatus;
+use App\Enums\SubtitleStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -24,6 +26,8 @@ class Clip extends Model
         'quality',
         'status',
         'progress',
+        'subtitles_enabled',
+        'subtitle_status',
         'output_disk',
         'output_path',
         'custom_file_name',
@@ -52,6 +56,22 @@ class Clip extends Model
     public function getRouteKeyName(): string
     {
         return 'uuid';
+    }
+
+    /**
+     * Clips that still occupy queue/worker capacity: queued or processing.
+     */
+    public function scopePending(Builder $query): Builder
+    {
+        return $query->whereIn('status', [ClipStatus::Queued, ClipStatus::Processing]);
+    }
+
+    /**
+     * Pending clips attributed to a single requesting IP.
+     */
+    public function scopePendingForIp(Builder $query, string $ip): Builder
+    {
+        return $query->pending()->where('requested_ip', $ip);
     }
 
     public function fileName(): string
@@ -89,6 +109,8 @@ class Clip extends Model
             'aspect_ratio' => ClipAspectRatio::class,
             'quality' => ClipQuality::class,
             'status' => ClipStatus::class,
+            'subtitles_enabled' => 'boolean',
+            'subtitle_status' => SubtitleStatus::class,
             'output_expires_at' => 'immutable_datetime',
         ];
     }

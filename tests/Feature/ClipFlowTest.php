@@ -3,12 +3,14 @@
 use App\Enums\ClipAspectRatio;
 use App\Enums\ClipQuality;
 use App\Enums\ClipStatus;
+use App\Enums\SubtitleStatus;
 use App\Jobs\ProcessClip;
 use App\Models\Clip;
 use App\Support\Clips\ClipProcessor;
+use App\Support\Clips\SubtitleBurner;
 use Illuminate\Contracts\Process\ProcessResult;
-use Illuminate\Support\Facades\File;
 use Illuminate\Process\PendingProcess;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -63,6 +65,16 @@ test('metadata endpoint returns youtube metadata from yt dlp', function () {
             'channel' => 'Example channel',
             'duration' => 123,
             'thumbnail' => 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+            'subtitles' => [
+                'en' => [
+                    ['ext' => 'vtt', 'url' => 'https://example.com/manual.vtt'],
+                ],
+            ],
+            'automatic_captions' => [
+                'en' => [
+                    ['ext' => 'vtt', 'url' => 'https://example.com/auto.vtt'],
+                ],
+            ],
         ], JSON_THROW_ON_ERROR)),
     ]);
 
@@ -74,6 +86,9 @@ test('metadata endpoint returns youtube metadata from yt dlp', function () {
         ->assertJsonPath('video.channel', 'Example channel')
         ->assertJsonPath('video.duration', 123)
         ->assertJsonPath('video.thumbnailUrl', 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg')
+        ->assertJsonPath('video.captions.available', true)
+        ->assertJsonPath('video.captions.kind', 'manual')
+        ->assertJsonPath('video.captions.language', 'en')
         ->assertJsonPath('limits.maxClipLength', 180)
         ->assertJsonPath('limits.retentionHours', 1);
 
@@ -86,6 +101,31 @@ test('metadata endpoint returns youtube metadata from yt dlp', function () {
             '--no-playlist',
             'https://youtu.be/dQw4w9WgXcQ',
         ]);
+});
+
+test('metadata endpoint falls back to automatic captions when manual captions are unavailable', function () {
+    config([
+        'freekliping.subtitle_language' => 'id',
+        'freekliping.yt_dlp_binary' => 'yt-dlp',
+    ]);
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(ytDlpMetadataOutput(
+            duration: 123,
+            automaticCaptions: [
+                'id' => [
+                    ['ext' => 'vtt', 'url' => 'https://example.com/auto.vtt'],
+                ],
+            ],
+        )),
+    ]);
+
+    $this->postJson(route('clips.metadata'), [
+        'url' => 'https://youtu.be/dQw4w9WgXcQ',
+    ])->assertOk()
+        ->assertJsonPath('video.captions.available', true)
+        ->assertJsonPath('video.captions.kind', 'auto')
+        ->assertJsonPath('video.captions.language', 'id');
 });
 
 test('metadata endpoint rejects unavailable videos from yt dlp', function () {
@@ -161,12 +201,15 @@ test('clip submit stores a queued clip and dispatches processing job', function 
         'end_seconds' => 60,
         'aspect_ratio' => '9:16',
         'quality' => '720p',
+        'rights_confirmed' => true,
+        'subtitles_enabled' => true,
     ])->assertAccepted()
         ->assertJsonPath('clip.status', 'queued')
         ->assertJsonPath('clip.progress', 5)
         ->assertJsonPath('clip.aspectRatio', '9:16')
         ->assertJsonPath('clip.quality', '720p')
         ->assertJsonPath('clip.duration', 30)
+        ->assertJsonPath('clip.subtitleStatus', null)
         ->assertJsonPath('clip.downloadUrl', null);
 
     $clip = Clip::query()->first();
@@ -176,9 +219,26 @@ test('clip submit stores a queued clip and dispatches processing job', function 
         ->and($clip->start_seconds)->toBe(30)
         ->and($clip->end_seconds)->toBe(60)
         ->and($clip->aspect_ratio)->toBe(ClipAspectRatio::Vertical)
-        ->and($clip->quality)->toBe(ClipQuality::P720);
+        ->and($clip->quality)->toBe(ClipQuality::P720)
+        ->and($clip->subtitles_enabled)->toBeTrue();
 
     Queue::assertPushed(ProcessClip::class, fn (ProcessClip $job): bool => $job->clipId === $clip->id);
+});
+
+test('clip submit requires content rights confirmation before rendering', function () {
+    Queue::fake();
+    Process::preventStrayProcesses();
+    Process::fake();
+
+    $this->postJson(route('clips.store'), [
+        'url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'start_seconds' => 10,
+        'end_seconds' => 20,
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors('rights_confirmed');
+
+    Queue::assertNothingPushed();
+    Process::assertDidntRun('*');
 });
 
 test('clip submit rejects invalid export options', function () {
@@ -192,6 +252,7 @@ test('clip submit rejects invalid export options', function () {
         'end_seconds' => 20,
         'aspect_ratio' => '3:2',
         'quality' => '8k',
+        'rights_confirmed' => true,
     ])->assertUnprocessable()
         ->assertJsonValidationErrors(['aspect_ratio', 'quality']);
 
@@ -208,6 +269,7 @@ test('clip submit rejects clips longer than the configured limit', function () {
         'url' => 'https://youtu.be/dQw4w9WgXcQ',
         'start_seconds' => 10,
         'end_seconds' => 220,
+        'rights_confirmed' => true,
     ])->assertUnprocessable()
         ->assertJsonValidationErrors('end_seconds');
 
@@ -226,6 +288,7 @@ test('clip submit rejects end timestamps beyond video duration', function () {
         'url' => 'https://youtu.be/dQw4w9WgXcQ',
         'start_seconds' => 20,
         'end_seconds' => 60,
+        'rights_confirmed' => true,
     ])->assertUnprocessable()
         ->assertJsonPath('message', 'Titik akhir klip melewati durasi video.');
 
@@ -379,6 +442,291 @@ test('processing job applies selected aspect ratio and quality', function () {
     ]);
 });
 
+test('processing job burns requested subtitles when a caption track is available', function () {
+    Storage::fake('local');
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    config([
+        'freekliping.download_buffer_seconds' => 3,
+        'freekliping.output_disk' => 'local',
+        'freekliping.processing_timeout' => 600,
+        'freekliping.retention_hours' => 1,
+        'freekliping.subtitle_language' => 'en',
+    ]);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'subtitles_enabled' => true,
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $workDirectory = storage_path("app/clip-processing/{$clip->uuid}");
+    File::ensureDirectoryExists($workDirectory);
+    File::put("{$workDirectory}/source.mp4", 'source-video');
+    File::put("{$workDirectory}/subtitle.en.srt", "1\n00:00:30,000 --> 00:00:32,000\nHello\n");
+    File::put("{$workDirectory}/output.mp4", 'processed-video');
+
+    (new ProcessClip($clip->id))->handle(app(ClipProcessor::class));
+
+    $clip->refresh();
+
+    expect($clip->subtitle_status)->toBe(SubtitleStatus::Burned);
+
+    Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
+        'yt-dlp',
+        '--write-subs',
+        '--sub-langs',
+        'en',
+        '--sub-format',
+        'best',
+        '--convert-subs',
+        'srt',
+        '--skip-download',
+        '--no-playlist',
+        '--no-warnings',
+        '-o',
+        "{$workDirectory}/subtitle",
+        'https://youtu.be/dQw4w9WgXcQ',
+    ]);
+
+    Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
+        'ffmpeg',
+        '-y',
+        '-i',
+        "{$workDirectory}/source.mp4",
+        '-ss',
+        '3',
+        '-t',
+        '30',
+        '-vf',
+        'subtitles='.addcslashes("{$workDirectory}/subtitle.styled.ass", '\\:'),
+        '-c:v',
+        'libx264',
+        '-c:a',
+        'aac',
+        '-movflags',
+        '+faststart',
+        "{$workDirectory}/output.mp4",
+    ]);
+});
+
+test('subtitle burner writes styled ass tuned for vertical clips', function () {
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    config(['freekliping.subtitle_language' => 'id']);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'aspect_ratio' => ClipAspectRatio::Vertical,
+        'subtitles_enabled' => true,
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $workDirectory = storage_path("app/clip-processing/{$clip->uuid}");
+    File::ensureDirectoryExists($workDirectory);
+    File::put("{$workDirectory}/subtitle.id.srt", "1\n00:00:30,000 --> 00:00:32,500\nHalo <i>dunia</i>, bro {tag}\n");
+
+    $subtitlePath = app(SubtitleBurner::class)->prepare($clip, $workDirectory, 27);
+
+    expect($subtitlePath)->toBe("{$workDirectory}/subtitle.styled.ass");
+
+    $content = File::get($subtitlePath);
+
+    expect($content)
+        ->toContain('PlayResX: 1080')
+        ->toContain('PlayResY: 1920')
+        ->toContain('Style: FreeKlipingBase,DejaVu Sans,70,&H00FFFFFF,&H00FFFFFF,&H00000000,&H7A000000,-1,0,0,0,100,100,0,0,1,5,1,2,86,86,260,1')
+        ->toContain('Dialogue: 0,0:00:03.00,0:00:05.50,FreeKlipingBase,,0000,0000,0000,,Halo dunia, bro tag');
+
+    File::deleteDirectory($workDirectory);
+});
+
+test('subtitle burner uses json3 word timing for active word highlights', function () {
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    config(['freekliping.subtitle_language' => 'id']);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'aspect_ratio' => ClipAspectRatio::Vertical,
+        'subtitles_enabled' => true,
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $workDirectory = storage_path("app/clip-processing/{$clip->uuid}");
+    File::ensureDirectoryExists($workDirectory);
+    File::put("{$workDirectory}/subtitle.id.json3", json_encode([
+        'events' => [
+            [
+                'tStartMs' => 30000,
+                'dDurationMs' => 1300,
+                'segs' => [
+                    ['utf8' => 'Halo'],
+                    ['utf8' => ' Halo', 'tOffsetMs' => 20],
+                    ['utf8' => ' dunia', 'tOffsetMs' => 420],
+                    ['utf8' => ' semua', 'tOffsetMs' => 860],
+                ],
+            ],
+        ],
+    ], JSON_THROW_ON_ERROR));
+
+    $subtitlePath = app(SubtitleBurner::class)->prepare($clip, $workDirectory, 27);
+
+    expect($subtitlePath)->toBe("{$workDirectory}/subtitle.styled.ass");
+
+    $content = File::get($subtitlePath);
+
+    expect($content)
+        ->toContain('Dialogue: 0,0:00:02.92,0:00:04.54,FreeKlipingBase,,0000,0000,0000,,')
+        ->toContain('{\c&H00FFFFFF&\t(80,81,\c&H005AE1FF&)\t(500,501,\c&H00FFFFFF&)}Halo')
+        ->toContain('{\c&H00FFFFFF&\t(500,501,\c&H005AE1FF&)\t(940,941,\c&H00FFFFFF&)}dunia')
+        ->toContain('{\c&H00FFFFFF&\t(940,941,\c&H005AE1FF&)\t(1460,1461,\c&H00FFFFFF&)}semua')
+        ->not->toContain('Dialogue: 1');
+
+    expect(substr_count($content, '}Halo'))->toBe(1);
+
+    File::deleteDirectory($workDirectory);
+});
+
+test('subtitle burner keeps vertical word groups compact and non overlapping', function () {
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    config(['freekliping.subtitle_language' => 'id']);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'aspect_ratio' => ClipAspectRatio::Vertical,
+        'subtitles_enabled' => true,
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $workDirectory = storage_path("app/clip-processing/{$clip->uuid}");
+    File::ensureDirectoryExists($workDirectory);
+    File::put("{$workDirectory}/subtitle.id.json3", json_encode([
+        'events' => [
+            [
+                'tStartMs' => 30000,
+                'dDurationMs' => 2500,
+                'segs' => [
+                    ['utf8' => 'ini,'],
+                    ['utf8' => ' kalau', 'tOffsetMs' => 350],
+                    ['utf8' => ' kamu', 'tOffsetMs' => 700],
+                    ['utf8' => ' meneruskan', 'tOffsetMs' => 1050],
+                    ['utf8' => ' ini.', 'tOffsetMs' => 1500],
+                    ['utf8' => ' Jadi', 'tOffsetMs' => 1900],
+                ],
+            ],
+        ],
+    ], JSON_THROW_ON_ERROR));
+
+    $subtitlePath = app(SubtitleBurner::class)->prepare($clip, $workDirectory, 27);
+    $content = File::get($subtitlePath);
+
+    expect($content)
+        ->toContain('Dialogue: 0,0:00:02.92,0:00:04.05,FreeKlipingBase,,0000,0000,0000,,')
+        ->toContain('Dialogue: 0,0:00:04.05,0:00:04.90,FreeKlipingBase,,0000,0000,0000,,')
+        ->toContain('Dialogue: 0,0:00:04.90,0:00:05.58,FreeKlipingBase,,0000,0000,0000,,')
+        ->not->toContain('\\N')
+        ->not->toContain('Dialogue: 1');
+
+    File::deleteDirectory($workDirectory);
+});
+
+test('processing job marks subtitles unavailable when no caption track is downloaded', function () {
+    Storage::fake('local');
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    config([
+        'freekliping.download_buffer_seconds' => 3,
+        'freekliping.output_disk' => 'local',
+        'freekliping.processing_timeout' => 600,
+        'freekliping.retention_hours' => 1,
+        'freekliping.subtitle_language' => 'en',
+    ]);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'subtitles_enabled' => true,
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $workDirectory = storage_path("app/clip-processing/{$clip->uuid}");
+    File::ensureDirectoryExists($workDirectory);
+    File::put("{$workDirectory}/source.mp4", 'source-video');
+    File::put("{$workDirectory}/output.mp4", 'processed-video');
+
+    (new ProcessClip($clip->id))->handle(app(ClipProcessor::class));
+
+    expect($clip->refresh()->subtitle_status)->toBe(SubtitleStatus::Unavailable);
+
+    Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
+        'yt-dlp',
+        '--write-auto-subs',
+        '--sub-langs',
+        'id',
+        '--sub-format',
+        'best',
+        '--convert-subs',
+        'srt',
+        '--skip-download',
+        '--no-playlist',
+        '--no-warnings',
+        '-o',
+        "{$workDirectory}/subtitle",
+        'https://youtu.be/dQw4w9WgXcQ',
+    ]);
+});
+
 test('completed clips can be downloaded with a signed url', function () {
     Storage::fake('local');
 
@@ -448,7 +796,7 @@ test('queued clip filename cannot be updated', function () {
         ->assertJsonPath('message', 'Nama file hanya bisa diubah setelah klip selesai diproses.');
 });
 
-function ytDlpMetadataOutput(int $duration = 123): string
+function ytDlpMetadataOutput(int $duration = 123, array $subtitles = [], array $automaticCaptions = []): string
 {
     return json_encode([
         'id' => 'dQw4w9WgXcQ',
@@ -456,5 +804,7 @@ function ytDlpMetadataOutput(int $duration = 123): string
         'channel' => 'Example channel',
         'duration' => $duration,
         'thumbnail' => 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+        'subtitles' => $subtitles,
+        'automatic_captions' => $automaticCaptions,
     ], JSON_THROW_ON_ERROR);
 }

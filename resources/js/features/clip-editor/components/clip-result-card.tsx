@@ -1,6 +1,8 @@
 import {
     AlertCircle,
+    Captions,
     Check,
+    Clapperboard,
     Download,
     FilePenLine,
     LoaderCircle,
@@ -21,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { aspectRatioLabel, qualityLabel } from '../clip-editor.constants';
 import type { ClipResult } from '../clip-editor.types';
 import { fileBaseName, formatTimecode } from '../clip-editor.utils';
+import { useFocusOnMount } from '../use-focus-on-mount';
 
 export function ClipResultCard({
     onRename,
@@ -36,10 +39,12 @@ export function ClipResultCard({
     );
     const [renameError, setRenameError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const headingRef = useFocusOnMount<HTMLDivElement>();
     const cleanDraft = draftFileName.trim();
     const currentBaseName = fileBaseName(result.fileName);
     const canSave =
         cleanDraft.length > 0 && cleanDraft !== currentBaseName && !saving;
+    const subtitleLabel = subtitleStatusLabel(result.subtitleStatus);
 
     function handleDownload() {
         window.location.href = result.downloadUrl;
@@ -68,21 +73,54 @@ export function ClipResultCard({
     }
 
     return (
-        <Card className="gap-0 rounded-lg border-border bg-card p-0">
-            <CardHeader className="flex-row items-start gap-3 rounded-t-lg px-5 py-4">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-success/12 text-success">
-                    <Check className="size-4" />
+        <Card className="gap-0 overflow-hidden rounded-lg border-border bg-card p-0 shadow-[0_24px_80px_-44px_rgba(0,0,0,0.95)]">
+            <CardHeader className="flex-row items-start gap-4 border-b border-border bg-surface-2 px-5 py-5">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-success/12 text-success ring-1 ring-success/20">
+                    <Check className="size-5" />
                 </div>
-                <div className="min-w-0 flex-1">
-                    <CardTitle className="flex items-center gap-2 text-[15px] text-foreground">
+                <div className="min-w-0 flex-1 space-y-1">
+                    <CardTitle
+                        ref={headingRef}
+                        tabIndex={-1}
+                        className="flex items-center gap-2 rounded-sm text-[18px] text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    >
                         Clip ready
                         <FilePenLine className="size-4 text-muted-foreground" />
                     </CardTitle>
+                    <p className="text-[13px] leading-relaxed text-text-secondary">
+                        Your clip has been rendered and is ready to download.
+                    </p>
                 </div>
             </CardHeader>
 
-            <CardContent className="grid gap-4 px-5 py-4">
-                <label className="grid max-w-[420px] gap-2 text-left">
+            <CardContent className="grid gap-5 px-5 py-5">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <ResultMetric
+                        label="Duration"
+                        value={formatTimecode(result.duration)}
+                    />
+                    <ResultMetric
+                        label="Aspect"
+                        value={aspectRatioLabel(result.aspectRatio)}
+                    />
+                    <ResultMetric
+                        label="Quality"
+                        value={qualityLabel(result.quality)}
+                    />
+                    <ResultMetric
+                        label="Size"
+                        value={result.sizeMb ? `${result.sizeMb} MB` : 'Ready'}
+                    />
+                </div>
+
+                {subtitleLabel ? (
+                    <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-[13px] text-text-secondary">
+                        <Captions className="size-4 text-muted-foreground" />
+                        {subtitleLabel}
+                    </div>
+                ) : null}
+
+                <label className="grid gap-2 text-left">
                     <span className="font-mono text-[10.5px] tracking-[0.14em] text-muted-foreground uppercase">
                         File name
                     </span>
@@ -125,25 +163,9 @@ export function ClipResultCard({
                         <AlertDescription>{renameError}</AlertDescription>
                     </Alert>
                 ) : null}
-
-                <p className="text-[13px] text-text-secondary">
-                    {formatTimecode(result.duration)}
-                    <span className="mx-1.5 text-muted-foreground">·</span>
-                    {aspectRatioLabel(result.aspectRatio)}
-                    <span className="mx-1.5 text-muted-foreground">·</span>
-                    {qualityLabel(result.quality)}
-                    {result.sizeMb ? (
-                        <>
-                            <span className="mx-1.5 text-muted-foreground">
-                                ·
-                            </span>
-                            {result.sizeMb} MB
-                        </>
-                    ) : null}
-                </p>
             </CardContent>
 
-            <CardFooter className="flex flex-col gap-2 rounded-b-lg border-t border-border px-5 py-4 sm:flex-row sm:justify-end">
+            <CardFooter className="flex flex-col gap-2 border-t border-border bg-surface-2 px-5 py-4 sm:flex-row sm:justify-end">
                 <Button
                     type="button"
                     variant="outline"
@@ -161,7 +183,7 @@ export function ClipResultCard({
                 <Button
                     type="button"
                     onClick={handleDownload}
-                    className="h-9 w-full font-semibold sm:w-auto"
+                    className="h-10 w-full font-semibold sm:w-auto"
                 >
                     <Download className="size-4" />
                     Download
@@ -177,4 +199,36 @@ export function ClipResultCard({
             </CardFooter>
         </Card>
     );
+}
+
+function ResultMetric({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="grid gap-1 rounded-md border border-border bg-muted px-3 py-2">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                <Clapperboard className="size-3" />
+                {label}
+            </span>
+            <span className="truncate text-[13px] font-semibold text-foreground">
+                {value}
+            </span>
+        </div>
+    );
+}
+
+function subtitleStatusLabel(
+    status: ClipResult['subtitleStatus'],
+): string | null {
+    if (status === 'burned') {
+        return 'Subtitles burned';
+    }
+
+    if (status === 'unavailable') {
+        return 'Subtitles unavailable';
+    }
+
+    if (status === 'failed') {
+        return 'Subtitles skipped';
+    }
+
+    return null;
 }

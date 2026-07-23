@@ -5,15 +5,20 @@ namespace App\Support\Clips;
 use App\Enums\ClipAspectRatio;
 use App\Enums\ClipQuality;
 use App\Enums\ClipStatus;
+use App\Enums\SubtitleStatus;
 use App\Models\Clip;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Throwable;
 
 final class ClipProcessor
 {
+    public function __construct(private readonly SubtitleBurner $subtitleBurner) {}
+
     public function process(Clip $clip): void
     {
         $workDirectory = storage_path("app/clip-processing/{$clip->uuid}");
@@ -21,6 +26,7 @@ final class ClipProcessor
         $outputFile = "{$workDirectory}/output.mp4";
 
         File::ensureDirectoryExists($workDirectory);
+        $startedAt = microtime(true);
 
         try {
             $downloadStart = max(0, $clip->start_seconds - $this->downloadBufferSeconds());
@@ -29,9 +35,17 @@ final class ClipProcessor
 
             $this->runYtDlp($clip, $sourcePattern, $downloadStart, $downloadEnd);
 
+            Log::info('clip step completed', [
+                'clip' => $clip->uuid,
+                'step' => 'yt-dlp',
+                'elapsed_ms' => $this->elapsedMs($startedAt),
+            ]);
+
             $clip->update(['progress' => 55]);
 
             $sourceFile = $this->sourceFile($workDirectory);
+
+            $subtitlePath = $this->prepareSubtitles($clip, $workDirectory, $downloadStart);
 
             $this->runFfmpeg(
                 clip: $clip,
@@ -39,7 +53,14 @@ final class ClipProcessor
                 outputFile: $outputFile,
                 startSeconds: $localStart,
                 durationSeconds: $clip->end_seconds - $clip->start_seconds,
+                subtitlePath: $subtitlePath,
             );
+
+            Log::info('clip step completed', [
+                'clip' => $clip->uuid,
+                'step' => 'ffmpeg',
+                'elapsed_ms' => $this->elapsedMs($startedAt),
+            ]);
 
             $clip->update(['progress' => 85]);
 
@@ -52,6 +73,12 @@ final class ClipProcessor
             $contents = File::get($outputFile);
 
             Storage::disk($disk)->put($outputPath, $contents);
+
+            Log::info('clip completed', [
+                'clip' => $clip->uuid,
+                'size_mb' => round(strlen($contents) / 1024 / 1024, 2),
+                'elapsed_ms' => $this->elapsedMs($startedAt),
+            ]);
 
             $clip->update([
                 'status' => ClipStatus::Completed,
@@ -93,7 +120,35 @@ final class ClipProcessor
         }
     }
 
-    private function runFfmpeg(Clip $clip, string $sourceFile, string $outputFile, int $startSeconds, int $durationSeconds): void
+    private function prepareSubtitles(Clip $clip, string $workDirectory, int $downloadStart): ?string
+    {
+        if (! $clip->subtitles_enabled) {
+            return null;
+        }
+
+        try {
+            $subtitlePath = $this->subtitleBurner->prepare($clip, $workDirectory, $downloadStart);
+        } catch (Throwable $exception) {
+            Log::warning('subtitle preparation failed', [
+                'clip' => $clip->uuid,
+                'error' => $exception->getMessage(),
+            ]);
+
+            $clip->update(['subtitle_status' => SubtitleStatus::Failed]);
+
+            return null;
+        }
+
+        $clip->update([
+            'subtitle_status' => $subtitlePath !== null
+                ? SubtitleStatus::Burned
+                : SubtitleStatus::Unavailable,
+        ]);
+
+        return $subtitlePath;
+    }
+
+    private function runFfmpeg(Clip $clip, string $sourceFile, string $outputFile, int $startSeconds, int $durationSeconds, ?string $subtitlePath = null): void
     {
         $command = [
             $this->ffmpegBinary(),
@@ -106,7 +161,7 @@ final class ClipProcessor
             (string) $durationSeconds,
         ];
 
-        $videoFilter = $this->videoFilter($clip);
+        $videoFilter = $this->videoFilter($clip, $subtitlePath);
 
         if ($videoFilter !== null) {
             $command[] = '-vf';
@@ -136,7 +191,7 @@ final class ClipProcessor
         }
     }
 
-    private function videoFilter(Clip $clip): ?string
+    private function videoFilter(Clip $clip, ?string $subtitlePath = null): ?string
     {
         $aspectRatio = $clip->aspect_ratio instanceof ClipAspectRatio
             ? $clip->aspect_ratio
@@ -149,6 +204,10 @@ final class ClipProcessor
             $aspectRatio->cropFilter(),
             $quality->scaleFilter($aspectRatio),
         ])->filter()->values();
+
+        if ($subtitlePath !== null) {
+            $filters->push('subtitles='.addcslashes($subtitlePath, '\\:'));
+        }
 
         return $filters->isEmpty() ? null : $filters->implode(',');
     }
@@ -228,6 +287,11 @@ final class ClipProcessor
             intdiv($seconds % 3600, 60),
             $seconds % 60,
         );
+    }
+
+    private function elapsedMs(float $startedAt): int
+    {
+        return (int) round((microtime(true) - $startedAt) * 1000);
     }
 
     private function processFailureMessage(string $processName, string $errorOutput): string

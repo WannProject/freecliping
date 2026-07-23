@@ -7,6 +7,7 @@ use App\Models\Clip;
 use App\Support\Clips\ClipProcessor;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class ProcessClip implements ShouldQueue
@@ -37,11 +38,20 @@ class ProcessClip implements ShouldQueue
             'error_message' => null,
         ]);
 
+        Log::info('clip processing started', ['clip' => $clip->uuid]);
+
         $processor->process($clip);
     }
 
     public function failed(?Throwable $exception): void
     {
+        $clip = Clip::query()->find($this->clipId);
+
+        Log::error('clip processing failed', [
+            'clip' => $clip?->uuid,
+            'error' => $exception?->getMessage(),
+        ]);
+
         Clip::query()
             ->whereKey($this->clipId)
             ->update([

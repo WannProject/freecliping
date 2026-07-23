@@ -1,4 +1,5 @@
-export type FlowStage = 'idle' | 'loading' | 'ready' | 'generating' | 'done';
+export type FlowStage =
+    'idle' | 'loading' | 'analyzing' | 'ready' | 'generating' | 'done';
 
 export interface ClipRange {
     start: number;
@@ -7,10 +8,18 @@ export interface ClipRange {
 
 export type ClipAspectRatio = 'original' | '16:9' | '9:16' | '1:1';
 export type ClipQuality = 'source' | '480p' | '720p' | '1080p';
+export type CaptionKind = 'none' | 'manual' | 'auto';
+
+export interface CaptionAvailability {
+    available: boolean;
+    kind: CaptionKind;
+    language: string | null;
+}
 
 export interface ExportOptions {
     aspectRatio: ClipAspectRatio;
     quality: ClipQuality;
+    subtitlesEnabled: boolean;
 }
 
 export interface VideoMeta {
@@ -20,6 +29,7 @@ export interface VideoMeta {
     id: string;
     thumbnailUrl: string | null;
     title: string;
+    captions: CaptionAvailability;
 }
 
 export interface ClipResult {
@@ -29,8 +39,11 @@ export interface ClipResult {
     fileName: string;
     quality: ClipQuality;
     sizeMb: number | null;
+    subtitleStatus: SubtitleStatusValue;
     uuid: string;
 }
+
+export type SubtitleStatusValue = 'burned' | 'unavailable' | 'failed' | null;
 
 export interface MetadataResponse {
     limits: {
@@ -43,6 +56,7 @@ export interface MetadataResponse {
         id: string;
         thumbnailUrl: string | null;
         title: string;
+        captions: CaptionAvailability;
     };
 }
 
@@ -62,9 +76,104 @@ export interface ClipPayload {
     sizeMb: number | null;
     status: 'queued' | 'processing' | 'completed' | 'failed';
     statusUrl: string;
+    subtitleStatus: SubtitleStatusValue;
     uuid: string;
 }
 
 export interface ClipResponse {
     clip: ClipPayload;
+}
+
+export type ClipAnalysisStatus =
+    'queued' | 'processing' | 'completed' | 'failed';
+
+export interface ClipRecommendation {
+    caption: string;
+    category: string;
+    duration: number;
+    emotion: string;
+    endSeconds: number;
+    hook: string;
+    id: string;
+    openingText: string;
+    reason: string;
+    score: number;
+    startSeconds: number;
+    title: string;
+    transcriptExcerpt: string;
+}
+
+export interface ClipAnalysisPayload {
+    errorMessage: string | null;
+    progress: number;
+    recommendations: ClipRecommendation[];
+    status: ClipAnalysisStatus;
+    statusUrl: string;
+    transcriptLanguage: string | null;
+    uuid: string;
+    video: {
+        captions: CaptionAvailability;
+        channel: string;
+        duration: number;
+        id: string;
+        thumbnailUrl: string | null;
+        title: string;
+    };
+}
+
+export interface ClipAnalysisResponse {
+    analysis: ClipAnalysisPayload;
+}
+
+export interface LocalWorkerJobPayload {
+    errorMessage: string | null;
+    localOutputPath: string | null;
+    manifest: LocalWorkerManifest;
+    progress: number;
+    status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+    statusUrl: string;
+    uuid: string;
+}
+
+export interface LocalWorkerJobResponse {
+    localWorkerJob: LocalWorkerJobPayload;
+}
+
+export interface LocalWorkerManifest {
+    callbacks?: {
+        method?: string;
+        statusUrl?: string;
+        token?: string;
+    };
+    clip?: {
+        durationSeconds?: number;
+        endSeconds?: number;
+        startSeconds?: number;
+    };
+    disclaimer?: string;
+    export?: {
+        aspectRatio?: ClipAspectRatio;
+        format?: string;
+        quality?: ClipQuality;
+        subtitleStyle?: string;
+        subtitlesEnabled?: boolean;
+    };
+    jobId?: string;
+    output?: {
+        defaultFileName?: string;
+        syncOutput?: boolean;
+    };
+    requirements?: {
+        credentials?: string;
+        ffmpeg?: string;
+        ytDlp?: string;
+    };
+    runner?: string;
+    source?: {
+        cookiePolicy?: string;
+        type?: string;
+        url?: string;
+        youtubeVideoId?: string | null;
+    };
+    version?: number;
 }
