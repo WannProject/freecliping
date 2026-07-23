@@ -1,5 +1,9 @@
 import { cn } from '@/lib/utils';
-import { aspectRatioLabel, qualityLabel } from '../clip-editor.constants';
+import {
+    aspectRatioLabel,
+    qualityLabel,
+    subtitleStyleLabel,
+} from '../clip-editor.constants';
 import type { ClipRange, ExportOptions } from '../clip-editor.types';
 import { formatTimecode } from '../clip-editor.utils';
 
@@ -43,7 +47,9 @@ export function ExportSummary({
             </span>
             <span className="text-muted-foreground">&middot;</span>
             <span className="text-text-secondary">
-                {options.subtitlesEnabled ? 'Subtitles' : 'No subtitles'}
+                {options.subtitlesEnabled
+                    ? `Subtitles · ${subtitleStyleLabel(options.subtitleStyle)}`
+                    : 'No subtitles'}
             </span>
         </p>
     );

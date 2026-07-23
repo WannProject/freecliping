@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\ClipAspectRatio;
 use App\Enums\ClipQuality;
+use App\Enums\SubtitleStyle;
 use App\Support\Clips\YouTubeUrl;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -46,6 +47,7 @@ class StoreLocalWorkerJobRequest extends FormRequest
             'aspect_ratio' => ['sometimes', Rule::enum(ClipAspectRatio::class)],
             'quality' => ['sometimes', Rule::enum(ClipQuality::class)],
             'subtitles_enabled' => ['sometimes', 'boolean'],
+            'subtitle_style' => ['sometimes', Rule::enum(SubtitleStyle::class)],
             'sync_output' => ['sometimes', 'boolean'],
         ];
     }

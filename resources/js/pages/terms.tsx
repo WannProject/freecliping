@@ -1,5 +1,4 @@
 import { Head } from '@inertiajs/react';
-import { FileText } from 'lucide-react';
 
 import { LegalPage } from '@/components/legal-page';
 import { privacy } from '@/routes';
@@ -8,7 +7,6 @@ export default function Terms() {
     return (
         <LegalPage
             title="Terms of Service"
-            icon={<FileText className="size-4" />}
             actionHref={privacy().url}
             actionLabel="Privacy"
         >

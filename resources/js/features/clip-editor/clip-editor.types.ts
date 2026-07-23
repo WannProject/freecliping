@@ -9,6 +9,7 @@ export interface ClipRange {
 export type ClipAspectRatio = 'original' | '16:9' | '9:16' | '1:1';
 export type ClipQuality = 'source' | '480p' | '720p' | '1080p';
 export type CaptionKind = 'none' | 'manual' | 'auto';
+export type SubtitleStyle = 'word-highlight' | 'classic' | 'neon-box';
 
 export interface CaptionAvailability {
     available: boolean;
@@ -20,6 +21,7 @@ export interface ExportOptions {
     aspectRatio: ClipAspectRatio;
     quality: ClipQuality;
     subtitlesEnabled: boolean;
+    subtitleStyle: SubtitleStyle;
 }
 
 export interface VideoMeta {
@@ -77,6 +79,7 @@ export interface ClipPayload {
     status: 'queued' | 'processing' | 'completed' | 'failed';
     statusUrl: string;
     subtitleStatus: SubtitleStatusValue;
+    subtitleStyle: SubtitleStyle;
     uuid: string;
 }
 

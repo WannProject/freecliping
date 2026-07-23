@@ -6,7 +6,6 @@ import {
     Download,
     Heart,
     LoaderCircle,
-    Scissors,
     SlidersHorizontal,
     Sparkles,
     X,
@@ -20,6 +19,7 @@ import {
     updateFilename,
 } from '@/actions/App/Http/Controllers/ClipController';
 import { store as storeLocalWorkerJob } from '@/actions/App/Http/Controllers/LocalWorkerJobController';
+import { BrandLogo } from '@/components/brand-logo';
 import { Progress } from '@/components/ui/progress';
 import { defaultMaxClipLength } from '@/features/clip-editor/clip-editor.constants';
 import type {
@@ -55,8 +55,10 @@ type ClipWorkspaceTab = 'recommended' | 'manual';
 
 export default function Welcome({
     maxClipLength: pageMaxClipLength,
+    supportUrl = 'https://saweria.co/freekliping',
 }: {
     maxClipLength?: number;
+    supportUrl?: string;
 }) {
     const maxClipLength =
         typeof pageMaxClipLength === 'number'
@@ -72,6 +74,7 @@ export default function Welcome({
         aspectRatio: 'original',
         quality: '720p',
         subtitlesEnabled: false,
+        subtitleStyle: 'word-highlight',
     });
     const [progress, setProgress] = useState(0);
     const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -368,6 +371,7 @@ export default function Welcome({
                     aspect_ratio: optionsToUse.aspectRatio,
                     quality: optionsToUse.quality,
                     subtitles_enabled: optionsToUse.subtitlesEnabled,
+                    subtitle_style: optionsToUse.subtitleStyle,
                     sync_output: false,
                 }),
                 headers: jsonHeaders(),
@@ -446,6 +450,7 @@ export default function Welcome({
                     quality: optionsToUse.quality,
                     rights_confirmed: true,
                     subtitles_enabled: optionsToUse.subtitlesEnabled,
+                    subtitle_style: optionsToUse.subtitleStyle,
                 }),
                 headers: jsonHeaders(),
                 method: route.method.toUpperCase(),
@@ -588,17 +593,14 @@ export default function Welcome({
                     <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
                         <Link
                             href="/"
-                            className="flex min-w-0 items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                            className="flex min-w-0 items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brand"
                         >
-                            <Logomark />
-                            <span className="truncate text-[17px] font-semibold tracking-tight">
-                                FreeKliping
-                            </span>
+                            <BrandLogo />
                         </Link>
 
                         <div className="flex items-center gap-2">
                             <a
-                                href="https://saweria.co/freekliping"
+                                href={supportUrl}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="hidden h-9 items-center justify-center gap-2 rounded-md bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:bg-border sm:inline-flex"
@@ -764,7 +766,7 @@ export default function Welcome({
                     </div>
                 </section>
 
-                <SupportCard />
+                <SupportCard supportUrl={supportUrl} />
             </main>
         </>
     );
@@ -1135,15 +1137,7 @@ function ClipWorkspaceTabs({
     );
 }
 
-function Logomark() {
-    return (
-        <span className="relative flex size-8 items-center justify-center rounded-md bg-brand text-brand-foreground shadow-[0_0_0_1px_rgba(242,169,59,0.16),0_8px_28px_-8px_rgba(242,169,59,0.35)]">
-            <Scissors className="size-4" />
-        </span>
-    );
-}
-
-function SupportCard() {
+function SupportCard({ supportUrl }: { supportUrl: string }) {
     return (
         <section className="px-5 py-6 sm:px-8">
             <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 rounded-lg border border-border bg-card px-6 py-6 text-center sm:flex-row sm:text-left">
@@ -1158,7 +1152,7 @@ function SupportCard() {
                     </p>
                 </div>
                 <a
-                    href="https://saweria.co/freekliping"
+                    href={supportUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-border"

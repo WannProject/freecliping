@@ -6,6 +6,7 @@ use App\Enums\ClipAspectRatio;
 use App\Enums\ClipQuality;
 use App\Enums\ClipStatus;
 use App\Enums\SubtitleStatus;
+use App\Enums\SubtitleStyle;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
@@ -28,6 +29,7 @@ class Clip extends Model
         'progress',
         'subtitles_enabled',
         'subtitle_status',
+        'subtitle_style',
         'output_disk',
         'output_path',
         'custom_file_name',
@@ -40,6 +42,7 @@ class Clip extends Model
     protected $attributes = [
         'aspect_ratio' => 'original',
         'quality' => 'source',
+        'subtitle_style' => 'word-highlight',
         'status' => 'queued',
         'progress' => 0,
     ];
@@ -111,6 +114,7 @@ class Clip extends Model
             'status' => ClipStatus::class,
             'subtitles_enabled' => 'boolean',
             'subtitle_status' => SubtitleStatus::class,
+            'subtitle_style' => SubtitleStyle::class,
             'output_expires_at' => 'immutable_datetime',
         ];
     }

@@ -5,7 +5,6 @@ import {
     Eye,
     Flame,
     LoaderCircle,
-    MessageSquareText,
     Sparkles,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -177,6 +176,7 @@ function RecommendationCard({
         aspectRatio,
         quality,
         subtitlesEnabled,
+        subtitleStyle: 'word-highlight',
     };
 
     return (
@@ -188,7 +188,7 @@ function RecommendationCard({
                 showPlay
                 thumbnailUrl={video.thumbnailUrl}
             />
-            <CardContent className="grid gap-4 p-4">
+            <CardContent className="grid gap-3 p-4">
                 <div className="grid gap-3">
                     <div className="flex flex-wrap items-center gap-2">
                         <Badge className="bg-brand text-brand-foreground">
@@ -220,6 +220,9 @@ function RecommendationCard({
                                     forceHours,
                                 )}
                             </span>
+                            <span className="rounded-sm border border-border bg-muted px-1.5 py-0.5 text-[10.5px] font-medium text-text-secondary">
+                                MP4
+                            </span>
                             <span>
                                 {formatTimecode(
                                     recommendation.startSeconds,
@@ -235,52 +238,55 @@ function RecommendationCard({
                     </div>
                 </div>
 
-                <div className="grid gap-3 rounded-md border border-border bg-surface-2 p-3">
-                    <ControlSelect
-                        label="Resolution"
-                        onValueChange={(value) =>
-                            setQuality(value as ClipQuality)
-                        }
-                        value={quality}
-                    >
-                        {qualityOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                                {qualityLabel(option.value)}
-                            </SelectItem>
-                        ))}
-                    </ControlSelect>
-
-                    <ControlSelect
-                        label="Aspect ratio"
-                        onValueChange={(value) =>
-                            setAspectRatio(value as ClipAspectRatio)
-                        }
-                        value={aspectRatio}
-                    >
-                        {aspectRatioOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                                {aspectRatioLabel(option.value)}
-                            </SelectItem>
-                        ))}
-                    </ControlSelect>
-
+                <div className="grid gap-2 rounded-md border border-border bg-surface-2 p-2.5">
                     <div className="grid grid-cols-2 gap-2">
-                        <ReadonlyOption label="Format" value="MP4" />
-                        <ReadonlyOption
-                            label="Subtitle style"
-                            value={
-                                hasCaptions
-                                    ? subtitlesEnabled
-                                        ? 'Word highlight'
-                                        : 'Off'
-                                    : 'Unavailable'
+                        <ControlSelect
+                            label="Resolution"
+                            onValueChange={(value) =>
+                                setQuality(value as ClipQuality)
                             }
-                        />
+                            value={quality}
+                        >
+                            {qualityOptions.map((option) => (
+                                <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                >
+                                    {qualityLabel(option.value)}
+                                </SelectItem>
+                            ))}
+                        </ControlSelect>
+
+                        <ControlSelect
+                            label="Aspect ratio"
+                            onValueChange={(value) =>
+                                setAspectRatio(value as ClipAspectRatio)
+                            }
+                            value={aspectRatio}
+                        >
+                            {aspectRatioOptions.map((option) => (
+                                <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                >
+                                    {aspectRatioLabel(option.value)}
+                                </SelectItem>
+                            ))}
+                        </ControlSelect>
                     </div>
 
                     <label className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
-                        <span className="text-[12px] font-medium text-foreground">
-                            Subtitle
+                        <span className="min-w-0">
+                            <span className="block text-[11px] font-medium text-muted-foreground">
+                                Subtitle
+                            </span>
+                            <span className="block truncate text-[12.5px] font-medium text-foreground">
+                                {hasCaptions
+                                    ? subtitlesEnabled
+                                        ? 'Word highlight'
+                                        : 'Off'
+                                    : 'Unavailable'}
+                            </span>
                         </span>
                         <input
                             type="checkbox"
@@ -292,16 +298,6 @@ function RecommendationCard({
                             className="size-4 rounded border-border bg-background accent-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-45"
                         />
                     </label>
-                </div>
-
-                <div className="grid gap-2 text-[13px]">
-                    <p className="line-clamp-2 leading-relaxed text-text-secondary">
-                        {recommendation.reason}
-                    </p>
-                    <p className="line-clamp-2 leading-relaxed text-muted-foreground">
-                        <MessageSquareText className="mr-1 inline size-3.5" />
-                        {recommendation.openingText}
-                    </p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
@@ -369,19 +365,6 @@ function ControlSelect({
                 </SelectTrigger>
                 <SelectContent>{children}</SelectContent>
             </Select>
-        </div>
-    );
-}
-
-function ReadonlyOption({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="grid gap-1 rounded-md border border-border bg-background px-3 py-2">
-            <span className="text-[11px] font-medium text-muted-foreground">
-                {label}
-            </span>
-            <span className="truncate text-[12.5px] font-medium text-foreground">
-                {value}
-            </span>
         </div>
     );
 }

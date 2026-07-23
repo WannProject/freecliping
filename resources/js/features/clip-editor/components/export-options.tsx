@@ -12,6 +12,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { aspectRatioOptions, qualityOptions } from '../clip-editor.constants';
 import type { SelectOption } from '../clip-editor.constants';
 import type { CaptionAvailability, ExportOptions } from '../clip-editor.types';
+import { SubtitleStylePicker } from './subtitle-style-picker';
 import { SubtitleToggle } from './subtitle-toggle';
 
 export function ExportOptionsControls({
@@ -55,6 +56,15 @@ export function ExportOptionsControls({
                     onChange({ ...options, subtitlesEnabled })
                 }
             />
+            {options.subtitlesEnabled && captions.available ? (
+                <SubtitleStylePicker
+                    disabled={disabled}
+                    onChange={(subtitleStyle) =>
+                        onChange({ ...options, subtitleStyle })
+                    }
+                    value={options.subtitleStyle}
+                />
+            ) : null}
         </div>
     );
 }

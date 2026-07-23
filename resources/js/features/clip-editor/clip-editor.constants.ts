@@ -1,4 +1,8 @@
-import type { ClipAspectRatio, ClipQuality } from './clip-editor.types';
+import type {
+    ClipAspectRatio,
+    ClipQuality,
+    SubtitleStyle,
+} from './clip-editor.types';
 
 export const defaultMaxClipLength = 180;
 
@@ -54,6 +58,24 @@ export const qualityOptions: SelectOption<ClipQuality>[] = [
     },
 ];
 
+export const subtitleStyleOptions: SelectOption<SubtitleStyle>[] = [
+    {
+        description: 'Active word pops in amber',
+        label: 'Highlight',
+        value: 'word-highlight',
+    },
+    {
+        description: 'Clean full-line caption',
+        label: 'Classic',
+        value: 'classic',
+    },
+    {
+        description: 'Boxed text, neon accent',
+        label: 'Neon box',
+        value: 'neon-box',
+    },
+];
+
 export const timelineFrameCount = 14;
 export const timelineTickCount = 7;
 
@@ -68,5 +90,12 @@ export function qualityLabel(quality: ClipQuality): string {
     return (
         qualityOptions.find((option) => option.value === quality)?.label ??
         'Source'
+    );
+}
+
+export function subtitleStyleLabel(style: SubtitleStyle): string {
+    return (
+        subtitleStyleOptions.find((option) => option.value === style)?.label ??
+        'Highlight'
     );
 }

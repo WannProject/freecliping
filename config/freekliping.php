@@ -62,4 +62,6 @@ return [
 
     'output_disk' => env('FREEKLIPING_OUTPUT_DISK', env('FILESYSTEM_DISK', 'local')),
 
+    'support_url' => env('FREEKLIPING_SUPPORT_URL', 'https://saweria.co/freekliping'),
+
 ];
