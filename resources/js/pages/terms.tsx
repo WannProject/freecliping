@@ -16,19 +16,31 @@ export default function Terms() {
             <section className="space-y-5">
                 <p>
                     By using FreeKliping, you agree to these terms. FreeKliping
-                    is a free tool that helps you cut short clips from YouTube
-                    videos without an account.
+                    helps you review video moments and create clips from content
+                    you are allowed to process. It is not a general-purpose
+                    video downloader.
                 </p>
                 <h2 className="text-xl font-semibold text-foreground">
                     Your responsibility for source content
                 </h2>
                 <p>
                     You are solely responsible for ensuring that you have the
-                    rights and permissions to clip and download any video you
-                    process. FreeKliping does not grant you any rights to
-                    third-party content. If you are unsure whether you may use a
-                    video, contact the content owner or consult YouTube&apos;s
-                    Terms of Service.
+                    rights and permissions to analyze, render, export, publish,
+                    or reuse any video you process. FreeKliping does not grant
+                    you any rights to third-party content. If you are unsure
+                    whether you may use a video, contact the content owner or
+                    consult the platform&apos;s Terms of Service.
+                </p>
+                <h2 className="text-xl font-semibold text-foreground">
+                    Analysis and export
+                </h2>
+                <p>
+                    Pasting a YouTube link may be used to generate clip
+                    recommendations before export. Rendering and exporting clips
+                    requires your confirmation that you own the content, have a
+                    license, or have permission to process it. Do not use
+                    FreeKliping to bypass access controls, technical
+                    restrictions, or platform rules.
                 </p>
                 <h2 className="text-xl font-semibold text-foreground">
                     Acceptable use
@@ -56,6 +68,22 @@ export default function Terms() {
                     use of YouTube is subject to YouTube&apos;s Terms of
                     Service. FreeKliping does not bypass YouTube&apos;s
                     restrictions or protections.
+                </p>
+                <h2 className="text-xl font-semibold text-foreground">
+                    Copyright notices
+                </h2>
+                <p>
+                    If you believe content processed through FreeKliping
+                    infringes your rights, send a takedown request to{' '}
+                    <a
+                        href="mailto:takedown@freekliping.app"
+                        className="font-medium text-brand underline-offset-4 hover:underline"
+                    >
+                        takedown@freekliping.app
+                    </a>
+                    . Include the source URL, the infringing output URL if
+                    available, your contact details, and a statement that you
+                    are the rights holder or authorized to act for them.
                 </p>
             </section>
         </LegalPage>

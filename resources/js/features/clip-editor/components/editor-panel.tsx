@@ -20,12 +20,15 @@ import { cn } from '@/lib/utils';
 import { aspectRatioLabel, qualityLabel } from '../clip-editor.constants';
 import type { ClipRange, ExportOptions, VideoMeta } from '../clip-editor.types';
 import { formatTimecode } from '../clip-editor.utils';
+import { useFocusOnMount } from '../use-focus-on-mount';
 import { ClipTimeline } from './clip-timeline';
 import { ExportOptionsControls } from './export-options';
+import { ExportSummary } from './export-summary';
 import { GenerationProgress } from './generation-progress';
 import { TimeRangeControls } from './time-range-controls';
 
 export function EditorPanel({
+    canGenerate,
     clipLength,
     generationError,
     isClipTooLong,
@@ -39,6 +42,7 @@ export function EditorPanel({
     range,
     video,
 }: {
+    canGenerate: boolean;
     clipLength: number;
     generationError: string | null;
     isClipTooLong: boolean;
@@ -53,6 +57,7 @@ export function EditorPanel({
     video: VideoMeta;
 }) {
     const forceHours = video.duration >= 3600;
+    const headingRef = useFocusOnMount<HTMLParagraphElement>();
 
     return (
         <Card
@@ -65,7 +70,11 @@ export function EditorPanel({
                         <SlidersHorizontal className="size-4" />
                     </div>
                     <div className="min-w-0">
-                        <p className="text-[15px] font-semibold text-foreground">
+                        <p
+                            ref={headingRef}
+                            tabIndex={-1}
+                            className="rounded-sm text-[15px] font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                        >
                             Clip editor
                         </p>
                         <p className="mt-0.5 font-mono text-[11px] text-muted-foreground tabular-nums">
@@ -115,6 +124,7 @@ export function EditorPanel({
                 <Separator />
 
                 <ExportOptionsControls
+                    captions={video.captions}
                     disabled={isGenerating}
                     onChange={onOptionsChange}
                     options={options}
@@ -138,32 +148,29 @@ export function EditorPanel({
                 ) : null}
 
                 {generationError ? (
-                    <Alert variant="destructive">
-                        <AlertCircle className="size-4" />
-                        <AlertTitle>Clip could not be generated</AlertTitle>
-                        <AlertDescription className="flex flex-wrap items-center gap-3">
-                            <span>{generationError}</span>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={onGenerate}
-                                disabled={isGenerating || isClipTooLong}
-                                className="h-7 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            >
-                                Try again
-                            </Button>
-                        </AlertDescription>
-                    </Alert>
+                    <GenerationErrorAlert
+                        canGenerate={canGenerate}
+                        isClipTooLong={isClipTooLong}
+                        isGenerating={isGenerating}
+                        message={generationError}
+                        onRetry={onGenerate}
+                    />
                 ) : null}
             </CardContent>
 
-            <CardFooter className="justify-end gap-3 border-t border-border px-4 py-4 sm:px-5">
+            <CardFooter className="flex flex-col items-stretch gap-3 border-t border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <ExportSummary
+                    clipLength={clipLength}
+                    duration={video.duration}
+                    isClipTooLong={isClipTooLong}
+                    options={options}
+                    range={range}
+                />
                 <Button
                     type="button"
                     onClick={onGenerate}
-                    disabled={isClipTooLong || isGenerating}
-                    className="h-10 font-semibold"
+                    disabled={!canGenerate || isClipTooLong || isGenerating}
+                    className="h-10 w-full font-semibold sm:w-auto"
                 >
                     {isGenerating ? (
                         <LoaderCircle className="size-4 animate-spin" />
@@ -176,5 +183,46 @@ export function EditorPanel({
 
             {isGenerating ? <GenerationProgress progress={progress} /> : null}
         </Card>
+    );
+}
+
+function GenerationErrorAlert({
+    canGenerate,
+    isClipTooLong,
+    isGenerating,
+    message,
+    onRetry,
+}: {
+    canGenerate: boolean;
+    isClipTooLong: boolean;
+    isGenerating: boolean;
+    message: string;
+    onRetry: () => void;
+}) {
+    const ref = useFocusOnMount<HTMLDivElement>();
+
+    return (
+        <Alert
+            ref={ref}
+            variant="destructive"
+            tabIndex={-1}
+            className="rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+            <AlertCircle className="size-4" />
+            <AlertTitle>Clip could not be generated</AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center gap-3">
+                <span>{message}</span>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onRetry}
+                    disabled={!canGenerate || isGenerating || isClipTooLong}
+                    className="h-7 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                    Try again
+                </Button>
+            </AlertDescription>
+        </Alert>
     );
 }

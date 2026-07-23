@@ -24,10 +24,13 @@ Dokumen diperbarui berdasarkan audit repository pada 20 Juli 2026. Audit menemuk
 | 2    | Metadata YouTube sungguhan via yt-dlp               | Selesai        | P0        |
 | 3    | Pipeline generate clip sungguhan                    | Selesai        | P0        |
 | 4    | VPS deployment siap worker                          | Belum dimulai  | P0        |
-| 5    | Hardening anti-abuse dan cleanup output             | Belum dimulai  | P1        |
+| 5    | Hardening anti-abuse dan cleanup output             | Selesai        | P1        |
 | 6    | Export polish, subtitle, dan smart crop             | Belum dimulai  | P1/P2     |
 | 7    | Storage dan cost optimization                       | Belum dimulai  | P2        |
 | 8    | Monetisasi dan public launch readiness              | Belum dimulai  | P2        |
+| 9    | YouTube link ke AI clip recommendations             | Sebagian selesai | P0      |
+| 10   | Production-safe content workflow                    | Sebagian selesai | P0      |
+| 11   | Hybrid local worker                                 | Belum dimulai  | P1        |
 
 ## Phase 0 - Product & Technical Decision
 
@@ -105,7 +108,7 @@ resources/js/features/clip-editor/
 - [x] Gunakan `Skeleton` untuk metadata loading agar layout tidak meloncat.
 - [x] Gunakan `Separator` untuk pembagian section editor.
 - [x] Gunakan `Collapsible` untuk input timecode lanjutan.
-- [ ] Gunakan `Tooltip` untuk icon button yang tidak memiliki label visual.
+- [x] Gunakan `Tooltip` untuk icon button yang tidak memiliki label visual.
 - [x] Ganti semua elemen `<button>` manual dengan komponen `Button` apabila tidak ada alasan khusus.
 - [x] Hapus styling warna hardcoded utama dari komponen.
 - [x] Pindahkan warna FreeKliping ke semantic token di `resources/css/app.css`.
@@ -189,9 +192,9 @@ Checklist:
 - [x] Progress menggunakan `role=status` atau semantic progress yang tepat.
 - [x] Progress announcement menggunakan `aria-live=polite`.
 - [x] Kontrol editor di belakang loading overlay tidak bisa difokuskan.
-- [ ] Fokus berpindah ke heading editor setelah metadata berhasil.
-- [ ] Fokus berpindah ke alert setelah terjadi error.
-- [ ] Fokus berpindah ke heading `Clip ready` setelah generate selesai.
+- [x] Fokus berpindah ke heading editor setelah metadata berhasil.
+- [x] Fokus berpindah ke alert setelah terjadi error.
+- [x] Fokus berpindah ke heading `Clip ready` setelah generate selesai.
 
 ### 1.8 State coverage UI
 
@@ -304,7 +307,7 @@ Tujuan: menghapus subsystem Laravel React starter-kit yang tidak digunakan FreeK
 - [x] Hapus migration team, membership, invitation, current team, 2FA, dan passkey.
 - [x] Hapus tabel `users` dan `password_reset_tokens` jika akun benar-benar tidak digunakan.
 - [x] Pertahankan tabel `sessions` jika `SESSION_DRIVER=database`.
-- [ ] Untuk database existing, buat migration drop yang aman.
+- [x] Untuk database existing, buat migration drop yang aman.
 
 ### 1A.10 Hapus layout sidebar dan navigation starter-kit
 
@@ -389,15 +392,21 @@ Exit criteria Phase 1A:
 
 ## Phase 5 - Abuse Control, Cleanup, and Reliability
 
-- [ ] Rate limit per IP.
-- [ ] Batasi worker concurrency.
-- [ ] Cleanup output.
-- [ ] Cleanup record lama.
-- [ ] Retry terbatas.
-- [ ] Timeout yt-dlp dan ffmpeg.
-- [ ] Logging proses.
-- [ ] Pesan overload.
-- [ ] Evaluasi CAPTCHA.
+- [x] Rate limit per IP. — DIHAPUS atas keputusan owner; klik generate dan polling status tidak lagi terkena throttle per menit.
+- [x] Batasi worker concurrency. — capacity guard menolak klip baru saat queued+processing penuh (`max_concurrent_clips`) atau satu IP punya terlalu banyak in-flight (`max_pending_per_ip`). Hard concurrency sebenarnya diatur oleh jumlah worker Supervisor (Phase 4).
+- [x] Cleanup output. — `clips:prune` menghapus file output yang lewat retention, dijadwalkan tiap jam (`withoutOverlapping`).
+- [x] Cleanup record lama. — `clips:prune` menghapus record completed/failed yang lebih tua dari `prune_after_hours`.
+- [x] Retry terbatas. — `ProcessClip` `$tries = 2` + `$backoff = [10, 30]` (sudah ada, diverifikasi).
+- [x] Timeout yt-dlp dan ffmpeg. — `Process::timeout(processing_timeout)` diterapkan di kedua langkah dengan pesan ramah saat timed out (sudah ada, diverifikasi).
+- [x] Logging proses. — `Log::info/error` dengan context (clip uuid, step, elapsed_ms, size) di `ProcessClip` dan `ClipProcessor`.
+- [x] Pesan overload. — 503 saat global penuh, 429 saat per-IP penuh, keduanya dengan pesan Indonesia yang jelas.
+- [x] Evaluasi CAPTCHA. — KEPUTUSAN: ditunda sampai sebelum public launch. Saat ini private testing, rate limit + capacity guard sudah cukup. Saat dibuka publik, pertimbangkan Cloudflare Turnstile / hCaptcha bila abuse meningkat.
+
+### Catatan tambahan Phase 5
+
+- Trusted proxies (`trustProxies(at: '*')`) ditambahkan agar `$request->ip()` dan rate limit akurat di belakang nginx/load balancer.
+- Config baru: `max_concurrent_clips`, `max_pending_per_ip`, `prune_after_hours`.
+- TODO ops (Phase 4): pasang Supervisor worker dengan `--max-jobs`/`numprocs` sesuai RAM VPS untuk concurrency fisik.
 
 ## Phase 6 - Export Polish, Subtitle, and Smart Crop
 
@@ -407,18 +416,18 @@ Exit criteria Phase 1A:
 - [x] Quality export.
 - [x] Rename file.
 - [x] Input manual menit/detik.
-- [ ] Rapikan UI dengan shadcn.
-- [ ] Preview ringkas export.
+- [x] Rapikan UI dengan shadcn.
+- [x] Preview ringkas export.
 
 ### 6B - Subtitle YouTube Caption
 
-- [ ] Deteksi caption.
-- [ ] Prioritaskan manual caption.
-- [ ] Auto caption sebagai fallback.
-- [ ] Opsi enable/disable.
-- [ ] Convert caption.
-- [ ] Burn subtitle.
-- [ ] State caption unavailable.
+- [x] Deteksi caption.
+- [x] Prioritaskan manual caption.
+- [x] Auto caption sebagai fallback.
+- [x] Opsi enable/disable.
+- [x] Convert caption.
+- [x] Burn subtitle.
+- [x] State caption unavailable.
 
 ### 6C - Smart Crop
 
@@ -458,21 +467,135 @@ Exit criteria Phase 1A:
 - [ ] Legal review.
 - [ ] Maintenance/status page.
 
+## Phase 9 - YouTube Link to AI Clip Recommendations
+
+Tujuan: menjadikan fitur utama FreeKliping sebagai `paste YouTube link -> muncul beberapa rekomendasi klip`, sebelum user memilih klip mana yang akan dirender.
+
+### 9A - Transcript-first Analysis Flow
+
+- [x] User paste link YouTube.
+- [x] Sistem ambil metadata video.
+- [x] Sistem ambil transcript/caption jika tersedia.
+- [x] Jika caption YouTube tidak tersedia, arahkan ke Phase 6D Whisper.
+- [x] Jangan langsung render video setelah paste link.
+- [x] Pecah transcript menjadi kandidat segmen 20-90 detik.
+- [x] Pastikan setiap kandidat punya konteks cukup agar tidak menyesatkan.
+- [x] Simpan kandidat sementara untuk preview dan pemilihan user.
+
+### 9B - Viral Moment Scoring
+
+- [x] Buat scoring hook 3 detik pertama.
+- [x] Buat scoring emosi: penasaran, marah, setuju, terkejut, ingin debat.
+- [x] Buat scoring kategori: kontroversial, argumen kuat, lucu/sarkastis, emosional, solusi Indonesia.
+- [x] Buat scoring pacing berdasarkan kepadatan kata dan jeda.
+- [x] Buat scoring standalone context agar clip tetap bisa dipahami tanpa video lengkap.
+- [x] Hindari kandidat yang kehilangan konteks atau mengubah maksud pembicara.
+- [x] Outputkan skor total 0-100.
+
+### 9C - Recommendation Gallery UI
+
+- [x] Tampilkan daftar rekomendasi klip setelah transcript dianalisis.
+- [x] Untuk setiap rekomendasi tampilkan timestamp awal dan akhir.
+- [x] Tampilkan judul/hook klip.
+- [x] Tampilkan alasan bagian tersebut berpotensi viral.
+- [x] Tampilkan target emosi audiens.
+- [x] Tampilkan saran teks pembuka di layar.
+- [x] Tampilkan caption media sosial.
+- [x] Tambahkan tombol `Generate 9:16`, `Generate 1:1`, dan `Generate 16:9`.
+- [x] User bisa edit timestamp sebelum render.
+- [ ] User bisa pilih beberapa rekomendasi untuk batch render.
+
+### 9D - Backend Recommendation API
+
+- [x] Buat endpoint analyze video.
+- [x] Buat tabel atau struktur penyimpanan analysis session.
+- [x] Buat status polling analysis: queued, processing, completed, failed.
+- [x] Jalankan analysis lewat queue, bukan request HTTP utama.
+- [x] Cache hasil analysis per video agar paste link yang sama tidak diproses ulang penuh.
+- [x] Batasi durasi video yang bisa dianalisis pada MVP.
+- [x] Tambahkan error state untuk caption unavailable, transcript failed, dan video terlalu panjang.
+- [x] Tambahkan test backend analysis flow.
+
+Exit criteria Phase 9:
+
+- User paste link YouTube dan mendapat beberapa rekomendasi klip tanpa render video terlebih dahulu.
+- Setiap rekomendasi punya timestamp, hook, alasan viral, target emosi, dan caption.
+- User bisa memilih rekomendasi lalu generate clip dari rekomendasi tersebut.
+- Hasil rekomendasi tidak mengambil potongan yang menyesatkan atau kehilangan konteks penting.
+
+## Phase 10 - Production-safe Content Workflow
+
+Tujuan: tetap mempertahankan fitur paste link YouTube, tetapi menurunkan risiko legal/ToS sebelum public production.
+
+- [ ] Jadikan upload file milik user sebagai flow production paling aman.
+- [x] Untuk YouTube URL, tampilkan konfirmasi bahwa user punya hak/izin memproses konten.
+- [x] Pisahkan mode `analysis only` dan `render/export`.
+- [x] Jangan memosisikan produk sebagai YouTube downloader.
+- [x] Update Terms dengan tanggung jawab user atas hak konten sumber.
+- [x] Update Privacy dengan penjelasan metadata, transcript, IP, output sementara, dan retention.
+- [x] Tambahkan retention/delete otomatis untuk analysis dan output.
+- [x] Tambahkan DMCA/takedown contact sebelum public launch.
+- [ ] Evaluasi YouTube OAuth untuk channel milik user sendiri.
+- [x] Batasi render server-side untuk konten yang user upload sendiri atau user konfirmasi punya hak.
+- [ ] Catat keputusan legal final sebelum launch publik.
+
+Exit criteria Phase 10:
+
+- Public production punya jalur upload file yang aman.
+- YouTube link tetap ada, tetapi render/export dilindungi konfirmasi hak konten dan Terms yang jelas.
+- Produk tidak dipasarkan sebagai downloader video publik.
+
+## Phase 11 - Hybrid Local Worker
+
+Tujuan: memberi power mode seperti aplikasi local clipping, tetapi tetap mempertahankan web dashboard FreeKliping.
+
+### 11A - Local Worker MVP
+
+- [x] Tentukan bentuk local worker: CLI-compatible manifest dulu, bisa dinaikkan menjadi desktop/background app.
+- [x] Bundle atau auto-detect FFmpeg sebagai requirement manifest worker.
+- [x] Bundle atau auto-detect yt-dlp sebagai requirement manifest worker.
+- [ ] Worker berjalan di komputer user untuk download, trim, crop, subtitle, dan render.
+- [x] Web app mengirim job instruction ke worker lokal lewat manifest.
+- [x] Worker mengirim progress dan output path kembali ke web app lewat callback token.
+- [ ] Jika user memilih sync, output bisa diupload ke server.
+- [x] Jika tidak sync, output tetap berada di komputer user sebagai `local_output_path`.
+
+### 11B - Local Link Processing
+
+- [x] Support YouTube link di local worker manifest.
+- [ ] Evaluasi TikTok dan Instagram link hanya untuk local worker.
+- [x] Tambahkan disclaimer local mode: user bertanggung jawab atas hak dan kepatuhan platform.
+- [x] Simpan credential/cookie hanya lokal jika suatu platform membutuhkan login.
+- [x] Jangan kirim cookie user ke server.
+
+### 11C - Local AI Pipeline
+
+- [ ] Evaluasi faster-whisper local.
+- [ ] Evaluasi model kecil untuk device rendah.
+- [ ] Gunakan transcript local untuk scoring rekomendasi.
+- [ ] Cache transcript lokal agar video sama tidak diproses ulang.
+- [ ] Benchmark CPU-only dan GPU jika tersedia.
+
+Exit criteria Phase 11:
+
+- User bisa menjalankan worker lokal dan memproses link/file di komputer sendiri.
+- Web dashboard tetap menjadi tempat memilih rekomendasi dan memantau progress.
+- Biaya render/transcription server turun karena proses berat pindah ke device user.
+
 ## Urutan Kerja Terdekat
 
-1. Buat branch Phase 1 dan Phase 1A.
-2. Pecah `welcome.tsx`.
-3. Pisahkan metadata error dan generation error.
-4. Sederhanakan editor dan migrasikan ke semantic shadcn tokens.
-5. Audit responsive, keyboard, dan seluruh state.
-6. Jalankan build validation.
-7. Cleanup starter-kit secara bertahap.
-8. Perbarui Privacy dan Terms.
-9. Validasi cleanup.
-10. Siapkan VPS deployment.
-11. Hardening sebelum public use.
-12. Subtitle YouTube caption.
-13. Smart crop dan Whisper setelah MVP stabil.
+1. Stabilkan Phase 6B subtitle word highlight dari hasil render nyata.
+2. Lanjutkan Phase 9A: transcript-first analysis flow.
+3. Buat backend analysis session dan polling status.
+4. Pecah transcript menjadi kandidat segmen 20-90 detik.
+5. Buat scoring awal untuk hook, emosi, debat, konteks, dan pacing.
+6. Bangun recommendation gallery di UI.
+7. Sambungkan tombol `Generate` dari rekomendasi ke pipeline clip yang sudah ada.
+8. Tambahkan test backend dan frontend state untuk analysis flow.
+9. Perbarui Terms/Privacy untuk flow paste link, transcript, dan rekomendasi.
+10. Putuskan batas production: upload-first, YouTube analysis, dan render dengan konfirmasi hak konten.
+11. Setelah recommendation flow stabil, evaluasi Phase 6D Whisper untuk transcript yang lebih akurat.
+12. Setelah itu baru mulai riset Phase 11 local worker.
 
 ## Catatan Keputusan Saat Ini
 
@@ -489,5 +612,9 @@ Exit criteria Phase 1A:
 - Login/register: tidak digunakan.
 - Crop awal: center crop.
 - Subtitle awal: YouTube caption.
+- Rekomendasi klip: paste link YouTube -> transcript -> AI/rule scoring -> gallery rekomendasi -> render setelah user memilih.
+- Production-safe default: upload file milik user sebagai flow paling aman.
+- YouTube URL: tetap dipertahankan, tetapi perlu konfirmasi hak konten sebelum render/export public production.
+- Local worker: direkomendasikan sebagai power mode jangka menengah, bukan pengganti web app.
 - Smart crop dan Whisper: advanced feature.
 - Privacy dan Terms harus diperbarui.

@@ -25,9 +25,12 @@ export default function Privacy() {
                 <p>
                     When you paste a YouTube link, FreeKliping fetches video
                     metadata (title, channel, duration, thumbnail) using yt-dlp.
-                    When you generate a clip, we download the relevant section
-                    of the source video, trim it with ffmpeg, and store the
-                    result temporarily so you can download it.
+                    For clip recommendations, we may process available
+                    transcript or caption text and store the recommendation
+                    result temporarily. When you generate a clip, we download
+                    the relevant section of the source video, trim it with
+                    ffmpeg, and store the result temporarily so you can download
+                    it.
                 </p>
                 <h2 className="text-xl font-semibold text-foreground">
                     What we store
@@ -36,6 +39,9 @@ export default function Privacy() {
                     Generated clips are stored on our server for a limited time
                     (currently one hour) and then automatically deleted. We do
                     not keep permanent copies of your clips or the source video.
+                    Clip analysis metadata, transcript-derived text, requested
+                    IP address, and recommendation data are retained temporarily
+                    for cleanup and troubleshooting, then pruned automatically.
                 </p>
                 <h2 className="text-xl font-semibold text-foreground">
                     IP addresses and rate limiting

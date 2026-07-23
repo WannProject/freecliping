@@ -11,36 +11,49 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { aspectRatioOptions, qualityOptions } from '../clip-editor.constants';
 import type { SelectOption } from '../clip-editor.constants';
-import type { ExportOptions } from '../clip-editor.types';
+import type { CaptionAvailability, ExportOptions } from '../clip-editor.types';
+import { SubtitleToggle } from './subtitle-toggle';
 
 export function ExportOptionsControls({
+    captions,
     disabled,
     onChange,
     options,
 }: {
+    captions: CaptionAvailability;
     disabled: boolean;
     onChange: (options: ExportOptions) => void;
     options: ExportOptions;
 }) {
     return (
-        <div className="grid gap-3 sm:grid-cols-2">
-            <OptionSelector
+        <div className="grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+                <OptionSelector
+                    disabled={disabled}
+                    options={aspectRatioOptions}
+                    value={options.aspectRatio}
+                    onChange={(aspectRatio) =>
+                        onChange({ ...options, aspectRatio })
+                    }
+                    icon={<RatioIcon />}
+                    label="Ratio"
+                />
+                <OptionSelector
+                    disabled={disabled}
+                    options={qualityOptions}
+                    value={options.quality}
+                    onChange={(quality) => onChange({ ...options, quality })}
+                    icon={<QualityIcon />}
+                    label="Quality"
+                />
+            </div>
+            <SubtitleToggle
+                captions={captions}
                 disabled={disabled}
-                options={aspectRatioOptions}
-                value={options.aspectRatio}
-                onChange={(aspectRatio) =>
-                    onChange({ ...options, aspectRatio })
+                enabled={options.subtitlesEnabled}
+                onChange={(subtitlesEnabled) =>
+                    onChange({ ...options, subtitlesEnabled })
                 }
-                icon={<RatioIcon />}
-                label="Ratio"
-            />
-            <OptionSelector
-                disabled={disabled}
-                options={qualityOptions}
-                value={options.quality}
-                onChange={(quality) => onChange({ ...options, quality })}
-                icon={<QualityIcon />}
-                label="Quality"
             />
         </div>
     );
@@ -70,7 +83,7 @@ function OptionSelector<TValue extends string>({
                     {icon}
                     {label}
                 </Label>
-                <span className="text-[12px] text-muted-foreground">
+                <span className="text-[12px] font-medium text-text-secondary">
                     {selected?.description}
                 </span>
             </div>
@@ -91,7 +104,7 @@ function OptionSelector<TValue extends string>({
                         key={option.value}
                         value={option.value}
                         aria-label={option.label}
-                        className="h-10 border-0 border-l border-border bg-transparent text-[12px] text-text-secondary first:border-l-0 hover:bg-secondary hover:text-foreground data-[state=on]:bg-brand data-[state=on]:text-brand-foreground"
+                        className="h-10 border-0 border-l border-border bg-transparent text-[13px] font-medium text-text-secondary first:border-l-0 hover:bg-secondary hover:text-foreground focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none focus-visible:ring-inset data-[state=on]:bg-brand data-[state=on]:text-brand-foreground data-[state=on]:hover:bg-brand data-[state=on]:hover:text-brand-foreground"
                     >
                         {option.label}
                     </ToggleGroupItem>

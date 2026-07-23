@@ -2,7 +2,9 @@
 
 namespace App\Support\Clips;
 
+use App\Data\CaptionAvailability;
 use App\Data\YouTubeVideoMetadata;
+use App\Enums\CaptionKind;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Process;
 use JsonException;
@@ -68,7 +70,56 @@ final class YouTubeMetadataClient
             channel: $channel,
             durationSeconds: (int) $duration,
             thumbnailUrl: $this->thumbnailUrl($metadata),
+            captions: $this->detectCaptions($metadata),
         );
+    }
+
+    /**
+     * Detect captions for preferred languages, preferring manually authored
+     * subtitles over auto-generated ones.
+     *
+     * @param  array<string, mixed>  $metadata
+     */
+    private function detectCaptions(array $metadata): CaptionAvailability
+    {
+        foreach ($this->captionLanguages() as $language) {
+            if ($this->hasSubtitles(data_get($metadata, 'subtitles'), $language)) {
+                return new CaptionAvailability(CaptionKind::Manual, $language);
+            }
+        }
+
+        foreach ($this->captionLanguages() as $language) {
+            if ($this->hasSubtitles(data_get($metadata, 'automatic_captions'), $language)) {
+                return new CaptionAvailability(CaptionKind::Auto, $language);
+            }
+        }
+
+        return new CaptionAvailability(CaptionKind::None);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function captionLanguages(): array
+    {
+        $language = config('freekliping.subtitle_language');
+        $preferred = is_string($language) && $language !== '' ? $language : 'id';
+
+        return collect([$preferred, 'id', 'id-orig', 'en'])
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  mixed  $subtitles
+     */
+    private function hasSubtitles($subtitles, string $language): bool
+    {
+        $tracks = data_get($subtitles, $language);
+
+        return is_array($tracks) && $tracks !== [];
     }
 
     /**

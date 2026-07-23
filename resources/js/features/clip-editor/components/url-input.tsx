@@ -10,19 +10,29 @@ import { useRef } from 'react';
 import type { FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { useFocusOnMount } from '../use-focus-on-mount';
 
 export function UrlInput({
     error,
+    loadingLabel = 'Loading video',
     loading,
     onChange,
     onSubmit,
+    submitLabel = 'Load video',
     value,
 }: {
     error: string | null;
+    loadingLabel?: string;
     loading: boolean;
     onChange: (value: string) => void;
     onSubmit: () => void;
+    submitLabel?: string;
     value: string;
 }) {
     const inputRef = useRef<HTMLInputElement>(null);
@@ -72,16 +82,21 @@ export function UrlInput({
                         className="w-full min-w-0 bg-transparent font-mono text-[14.5px] text-foreground outline-none placeholder:font-sans placeholder:text-muted-foreground disabled:opacity-50"
                     />
                     {value && !loading ? (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onChange('')}
-                            aria-label="Clear link"
-                            className="size-7 rounded-full text-muted-foreground hover:bg-secondary hover:text-text-secondary"
-                        >
-                            <X className="size-4" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => onChange('')}
+                                    aria-label="Clear link"
+                                    className="size-7 rounded-full text-muted-foreground hover:bg-secondary hover:text-text-secondary"
+                                >
+                                    <X className="size-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Clear link</TooltipContent>
+                        </Tooltip>
                     ) : null}
                     {!value ? (
                         <Button
@@ -107,20 +122,28 @@ export function UrlInput({
                     ) : (
                         <Sparkles className="size-4" />
                     )}
-                    {loading ? 'Loading video' : 'Load video'}
+                    {loading ? loadingLabel : submitLabel}
                 </Button>
             </form>
 
-            {error ? (
-                <p
-                    id="url-error"
-                    role="alert"
-                    className="mt-2.5 flex items-center gap-1.5 px-1 text-[13px] text-destructive"
-                >
-                    <AlertCircle className="size-3.5 shrink-0" />
-                    {error}
-                </p>
-            ) : null}
+            {error ? <MetadataError message={error} /> : null}
         </div>
+    );
+}
+
+function MetadataError({ message }: { message: string }) {
+    const ref = useFocusOnMount<HTMLParagraphElement>();
+
+    return (
+        <p
+            ref={ref}
+            id="url-error"
+            role="alert"
+            tabIndex={-1}
+            className="mt-2.5 flex items-center gap-1.5 rounded-sm px-1 text-[13px] text-destructive focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+            <AlertCircle className="size-3.5 shrink-0" />
+            {message}
+        </p>
     );
 }
