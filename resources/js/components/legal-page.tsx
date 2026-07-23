@@ -1,17 +1,17 @@
 import { Link } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 
+import { BrandLogo } from '@/components/brand-logo';
+
 export function LegalPage({
     actionHref,
     actionLabel,
     children,
-    icon,
     title,
 }: {
     actionHref: string;
     actionLabel: string;
     children: ReactNode;
-    icon: ReactNode;
     title: string;
 }) {
     return (
@@ -20,14 +20,9 @@ export function LegalPage({
                 <nav className="mb-10 flex items-center justify-between gap-4">
                     <Link
                         href="/"
-                        className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                        className="flex items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     >
-                        <span className="flex size-8 items-center justify-center rounded-md bg-brand text-brand-foreground">
-                            {icon}
-                        </span>
-                        <span className="text-[17px] font-semibold tracking-tight">
-                            FreeKliping
-                        </span>
+                        <BrandLogo />
                     </Link>
                     <Link
                         href={actionHref}

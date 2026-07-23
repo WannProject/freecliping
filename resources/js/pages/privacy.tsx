@@ -1,5 +1,4 @@
 import { Head } from '@inertiajs/react';
-import { ShieldCheck } from 'lucide-react';
 
 import { LegalPage } from '@/components/legal-page';
 import { terms } from '@/routes';
@@ -8,7 +7,6 @@ export default function Privacy() {
     return (
         <LegalPage
             title="Privacy Policy"
-            icon={<ShieldCheck className="size-4" />}
             actionHref={terms().url}
             actionLabel="Terms"
         >

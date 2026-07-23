@@ -8,6 +8,7 @@ use Inertia\Inertia;
 
 Route::get('/', fn () => Inertia::render('welcome', [
     'maxClipLength' => config('freekliping.max_clip_length'),
+    'supportUrl' => config('freekliping.support_url'),
 ]))->name('home');
 Route::inertia('/privacy', 'privacy')->name('privacy');
 Route::inertia('/terms', 'terms')->name('terms');

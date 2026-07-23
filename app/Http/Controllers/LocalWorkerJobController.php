@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\ClipAspectRatio;
 use App\Enums\ClipQuality;
 use App\Enums\LocalWorkerJobStatus;
+use App\Enums\SubtitleStyle;
 use App\Http\Requests\StoreLocalWorkerJobRequest;
 use App\Http\Requests\UpdateLocalWorkerJobRequest;
 use App\Models\LocalWorkerJob;
@@ -32,6 +33,7 @@ class LocalWorkerJobController extends Controller
             'aspect_ratio' => $request->enum('aspect_ratio', ClipAspectRatio::class) ?? ClipAspectRatio::Original,
             'quality' => $request->enum('quality', ClipQuality::class) ?? ClipQuality::Source,
             'subtitles_enabled' => (bool) $request->boolean('subtitles_enabled'),
+            'subtitle_style' => $request->enum('subtitle_style', SubtitleStyle::class) ?? SubtitleStyle::WordHighlight,
             'sync_output' => (bool) $request->boolean('sync_output'),
             'status' => LocalWorkerJobStatus::Queued,
             'progress' => 0,
@@ -124,7 +126,7 @@ class LocalWorkerJobController extends Controller
                 'quality' => $job->quality->value,
                 'format' => 'mp4',
                 'subtitlesEnabled' => $job->subtitles_enabled,
-                'subtitleStyle' => $job->subtitles_enabled ? 'word-highlight' : 'off',
+                'subtitleStyle' => $job->subtitles_enabled ? $job->subtitle_style->value : 'off',
             ],
             'output' => [
                 'defaultFileName' => sprintf(

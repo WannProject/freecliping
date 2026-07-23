@@ -3,6 +3,7 @@
 namespace App\Support\Clips;
 
 use App\Enums\ClipAspectRatio;
+use App\Enums\SubtitleStyle;
 use App\Models\Clip;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\File;
@@ -162,7 +163,8 @@ final class SubtitleBurner
         }
 
         $canvas = $this->subtitleCanvas($clip);
-        $style = $this->subtitleStyle($clip);
+        $style = $this->style($clip);
+        $styleLine = $this->assStyleLine($style);
         $events = collect($groups)
             ->map(fn (array $group): string => implode(',', [
                 'Dialogue: 0',
@@ -174,7 +176,7 @@ final class SubtitleBurner
                 '0000',
                 '0000',
                 '',
-                $this->animatedAssLine($group),
+                $this->assLineForGroup($group, $style),
             ]))
             ->implode("\n");
 
@@ -188,7 +190,7 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: FreeKlipingBase,{$style['font']},{$style['size']},&H00FFFFFF,&H00FFFFFF,&H00000000,&H7A000000,-1,0,0,0,100,100,0,0,1,{$style['outline']},{$style['shadow']},2,{$style['marginX']},{$style['marginX']},{$style['marginBottom']},1
+{$styleLine}
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -410,7 +412,8 @@ ASS;
         }
 
         $canvas = $this->subtitleCanvas($clip);
-        $style = $this->subtitleStyle($clip);
+        $style = $this->style($clip);
+        $styleLine = $this->assStyleLine($style);
         $events = collect($cues)
             ->map(fn (array $cue): string => implode(',', [
                 'Dialogue: 0',
@@ -436,7 +439,7 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: FreeKlipingBase,{$style['font']},{$style['size']},&H00FFFFFF,&H00FFFFFF,&H00000000,&H7A000000,-1,0,0,0,100,100,0,0,1,{$style['outline']},{$style['shadow']},2,{$style['marginX']},{$style['marginX']},{$style['marginBottom']},1
+{$styleLine}
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -529,9 +532,9 @@ ASS;
     /**
      * @return array{font: string, size: int, outline: int, shadow: int, marginX: int, marginBottom: int}
      */
-    private function subtitleStyle(Clip $clip): array
+    private function layout(ClipAspectRatio $aspectRatio): array
     {
-        return match ($clip->aspect_ratio) {
+        return match ($aspectRatio) {
             ClipAspectRatio::Vertical => [
                 'font' => 'DejaVu Sans',
                 'size' => 70,
@@ -559,6 +562,107 @@ ASS;
         };
     }
 
+    /**
+     * @return array{primaryColour: string, outlineColour: string, backColour: string, bold: int, borderStyle: int, animateActive: bool, activeColour: string, inactiveColour: string, outline?: int, shadow?: int}
+     */
+    private function palette(SubtitleStyle $style): array
+    {
+        return match ($style) {
+            SubtitleStyle::WordHighlight => [
+                'primaryColour' => '&H00FFFFFF',
+                'outlineColour' => '&H00000000',
+                'backColour' => '&H7A000000',
+                'bold' => -1,
+                'borderStyle' => 1,
+                'animateActive' => true,
+                'activeColour' => '&H005AE1FF',
+                'inactiveColour' => '&H00FFFFFF',
+            ],
+            SubtitleStyle::Classic => [
+                'primaryColour' => '&H00FFFFFF',
+                'outlineColour' => '&H00000000',
+                'backColour' => '&H80000000',
+                'bold' => -1,
+                'borderStyle' => 1,
+                'animateActive' => false,
+                'activeColour' => '&H00FFFFFF',
+                'inactiveColour' => '&H00FFFFFF',
+                'outline' => 6,
+                'shadow' => 0,
+            ],
+            SubtitleStyle::NeonBox => [
+                'primaryColour' => '&H00FFFFFF',
+                'outlineColour' => '&HCC000000',
+                'backColour' => '&H80000000',
+                'bold' => -1,
+                'borderStyle' => 3,
+                'animateActive' => true,
+                'activeColour' => '&H00FFE500',
+                'inactiveColour' => '&H00B4B4B4',
+                'outline' => 8,
+                'shadow' => 2,
+            ],
+        };
+    }
+
+    /**
+     * @return array{font: string, size: int, marginX: int, marginBottom: int, outline: int, shadow: int, primaryColour: string, outlineColour: string, backColour: string, bold: int, borderStyle: int, animateActive: bool, activeColour: string, inactiveColour: string}
+     */
+    private function style(Clip $clip): array
+    {
+        $layout = $this->layout($clip->aspect_ratio);
+        $palette = $this->palette($clip->subtitle_style ?? SubtitleStyle::WordHighlight);
+
+        return [
+            'font' => $layout['font'],
+            'size' => $layout['size'],
+            'marginX' => $layout['marginX'],
+            'marginBottom' => $layout['marginBottom'],
+            'outline' => $palette['outline'] ?? $layout['outline'],
+            'shadow' => $palette['shadow'] ?? $layout['shadow'],
+            'primaryColour' => $palette['primaryColour'],
+            'outlineColour' => $palette['outlineColour'],
+            'backColour' => $palette['backColour'],
+            'bold' => $palette['bold'],
+            'borderStyle' => $palette['borderStyle'],
+            'animateActive' => $palette['animateActive'],
+            'activeColour' => $palette['activeColour'],
+            'inactiveColour' => $palette['inactiveColour'],
+        ];
+    }
+
+    /**
+     * @param  array{font: string, size: int, marginX: int, marginBottom: int, outline: int, shadow: int, primaryColour: string, outlineColour: string, backColour: string, bold: int, borderStyle: int}  $style
+     */
+    private function assStyleLine(array $style): string
+    {
+        return implode(',', [
+            'Style: FreeKlipingBase',
+            $style['font'],
+            $style['size'],
+            $style['primaryColour'],
+            $style['primaryColour'],
+            $style['outlineColour'],
+            $style['backColour'],
+            $style['bold'],
+            0,
+            0,
+            0,
+            100,
+            100,
+            0,
+            0,
+            $style['borderStyle'],
+            $style['outline'],
+            $style['shadow'],
+            2,
+            $style['marginX'],
+            $style['marginX'],
+            $style['marginBottom'],
+            1,
+        ]);
+    }
+
     private function assText(string $text): string
     {
         $clean = str_replace(["\r\n", "\r"], "\n", trim($text));
@@ -572,11 +676,18 @@ ASS;
 
     /**
      * @param  array{start: int, end: int, words: array<int, array{text: string, start: int, end: int}>}  $group
+     * @param  array{animateActive: bool, activeColour: string, inactiveColour: string}  $style
      */
-    private function animatedAssLine(array $group): string
+    private function assLineForGroup(array $group, array $style): string
     {
+        if (! ($style['animateActive'] ?? false)) {
+            return collect($group['words'])
+                ->map(fn (array $word): string => $word['text'])
+                ->implode(' ');
+        }
+
         return collect($group['words'])
-            ->map(function (array $word) use ($group): string {
+            ->map(function (array $word) use ($group, $style): string {
                 $highlightStart = max(0, $word['start'] - $group['start']);
                 $highlightEnd = max(
                     $highlightStart + 1,
@@ -584,11 +695,14 @@ ASS;
                 );
 
                 return sprintf(
-                    '{\\c&H00FFFFFF&\\t(%d,%d,\\c&H005AE1FF&)\\t(%d,%d,\\c&H00FFFFFF&)}%s',
+                    '{\\c%s&\\t(%d,%d,\\c%s&)\\t(%d,%d,\\c%s&)}%s',
+                    $style['inactiveColour'],
                     $highlightStart,
                     $highlightStart + 1,
+                    $style['activeColour'],
                     $highlightEnd,
                     $highlightEnd + 1,
+                    $style['inactiveColour'],
                     $word['text'],
                 );
             })

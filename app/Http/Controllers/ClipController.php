@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\ClipAspectRatio;
 use App\Enums\ClipQuality;
 use App\Enums\ClipStatus;
+use App\Enums\SubtitleStyle;
 use App\Http\Requests\StoreClipMetadataRequest;
 use App\Http\Requests\StoreClipRequest;
 use App\Http\Requests\UpdateClipFilenameRequest;
@@ -75,6 +76,7 @@ class ClipController extends Controller
             'aspect_ratio' => $request->enum('aspect_ratio', ClipAspectRatio::class) ?? ClipAspectRatio::Original,
             'quality' => $request->enum('quality', ClipQuality::class) ?? ClipQuality::Source,
             'subtitles_enabled' => (bool) $request->boolean('subtitles_enabled'),
+            'subtitle_style' => $request->enum('subtitle_style', SubtitleStyle::class) ?? SubtitleStyle::WordHighlight,
             'status' => ClipStatus::Queued,
             'progress' => 5,
             'requested_ip' => $request->ip(),
@@ -172,6 +174,7 @@ class ClipController extends Controller
             'quality' => $clip->quality->value,
             'duration' => $clip->end_seconds - $clip->start_seconds,
             'subtitleStatus' => $clip->subtitle_status?->value,
+            'subtitleStyle' => $clip->subtitle_style->value,
             'sizeMb' => $clip->output_size_bytes
                 ? round($clip->output_size_bytes / 1024 / 1024, 1)
                 : null,

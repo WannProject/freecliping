@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ClipAspectRatio;
 use App\Enums\ClipQuality;
 use App\Enums\LocalWorkerJobStatus;
+use App\Enums\SubtitleStyle;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
@@ -23,6 +24,7 @@ class LocalWorkerJob extends Model
         'aspect_ratio',
         'quality',
         'subtitles_enabled',
+        'subtitle_style',
         'sync_output',
         'status',
         'progress',
@@ -43,6 +45,7 @@ class LocalWorkerJob extends Model
         'aspect_ratio' => 'original',
         'quality' => 'source',
         'subtitles_enabled' => false,
+        'subtitle_style' => 'word-highlight',
         'sync_output' => false,
         'status' => 'queued',
         'progress' => 0,
@@ -73,6 +76,7 @@ class LocalWorkerJob extends Model
             'aspect_ratio' => ClipAspectRatio::class,
             'quality' => ClipQuality::class,
             'subtitles_enabled' => 'boolean',
+            'subtitle_style' => SubtitleStyle::class,
             'sync_output' => 'boolean',
             'status' => LocalWorkerJobStatus::class,
             'manifest' => 'array',

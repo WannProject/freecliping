@@ -18,13 +18,17 @@ use Illuminate\Support\Facades\URL;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('home page exposes configured clip limits', function () {
-    config(['freekliping.max_clip_length' => 180]);
+    config([
+        'freekliping.max_clip_length' => 180,
+        'freekliping.support_url' => 'https://saweria.co/freekliping',
+    ]);
 
     $this->get(route('home'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('welcome')
-            ->where('maxClipLength', 180));
+            ->where('maxClipLength', 180)
+            ->where('supportUrl', 'https://saweria.co/freekliping'));
 });
 
 test('metadata endpoint rejects invalid youtube urls before external calls', function () {
