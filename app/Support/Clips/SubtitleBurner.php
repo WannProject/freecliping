@@ -82,7 +82,7 @@ final class SubtitleBurner
      */
     private function download(Clip $clip, string $outputTemplate, array $languages, string $format): void
     {
-        $command = array_values(array_filter([
+        $command = array_filter([
             $this->ytDlpBinary(),
             $this->jsRuntimeArgument(),
             '--write-subs',
@@ -91,7 +91,7 @@ final class SubtitleBurner
             implode(',', $languages),
             '--sub-format',
             $format === 'json3' ? 'json3' : 'best',
-        ]));
+        ]);
 
         if ($format === 'srt') {
             array_push($command, '--convert-subs', 'srt');
@@ -253,6 +253,7 @@ ASS;
     }
 
     /**
+     * @param  array<int, array{text: string, start: int, end: int}>  $words
      * @return array{start: int, end: int, words: array<int, array{text: string, start: int, end: int}>}
      */
     private function wordGroup(array $words): array
@@ -506,6 +507,11 @@ ASS;
 
     private function srtToMs(string $timestamp): int
     {
+        $hours = 0;
+        $minutes = 0;
+        $seconds = 0;
+        $milliseconds = 0;
+
         sscanf($timestamp, '%d:%d:%d,%d', $hours, $minutes, $seconds, $milliseconds);
 
         return (($hours * 60 + $minutes) * 60 + $seconds) * 1000 + $milliseconds;
@@ -685,7 +691,7 @@ ASS;
      */
     private function assLineForGroup(array $group, array $style): string
     {
-        if (! ($style['animateActive'] ?? false)) {
+        if (! $style['animateActive']) {
             return collect($group['words'])
                 ->map(fn (array $word): string => $word['text'])
                 ->implode(' ');

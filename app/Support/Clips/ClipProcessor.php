@@ -2,8 +2,6 @@
 
 namespace App\Support\Clips;
 
-use App\Enums\ClipAspectRatio;
-use App\Enums\ClipQuality;
 use App\Enums\ClipStatus;
 use App\Enums\SubtitleStatus;
 use App\Models\Clip;
@@ -98,7 +96,7 @@ final class ClipProcessor
     {
         try {
             $result = Process::timeout($this->processingTimeout())
-                ->run(array_values(array_filter([
+                ->run(array_filter([
                     $this->ytDlpBinary(),
                     $this->jsRuntimeArgument(),
                     '--download-sections',
@@ -111,7 +109,7 @@ final class ClipProcessor
                     '-o',
                     $sourcePattern,
                     $clip->source_url,
-                ])));
+                ]));
         } catch (ProcessTimedOutException $exception) {
             throw new RuntimeException('yt-dlp terlalu lama mengambil stream video.', previous: $exception);
         }
@@ -230,16 +228,9 @@ final class ClipProcessor
 
     private function videoFilter(Clip $clip, ?string $subtitlePath = null): ?string
     {
-        $aspectRatio = $clip->aspect_ratio instanceof ClipAspectRatio
-            ? $clip->aspect_ratio
-            : ClipAspectRatio::Original;
-        $quality = $clip->quality instanceof ClipQuality
-            ? $clip->quality
-            : ClipQuality::Source;
-
         $filters = collect([
-            $aspectRatio->cropFilter(),
-            $quality->scaleFilter($aspectRatio),
+            $clip->aspect_ratio->cropFilter(),
+            $clip->quality->scaleFilter($clip->aspect_ratio),
         ])->filter()->values();
 
         if ($subtitlePath !== null) {

@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ClipController extends Controller
 {
@@ -121,7 +122,7 @@ class ClipController extends Controller
         ]);
     }
 
-    public function download(Request $request, Clip $clip)
+    public function download(Request $request, Clip $clip): StreamedResponse
     {
         abort_unless($clip->status === ClipStatus::Completed, 404);
         abort_unless($clip->output_path && $clip->output_disk, 404);

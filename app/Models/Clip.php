@@ -7,11 +7,39 @@ use App\Enums\ClipQuality;
 use App\Enums\ClipStatus;
 use App\Enums\SubtitleStatus;
 use App\Enums\SubtitleStyle;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property string $source_url
+ * @property string $youtube_video_id
+ * @property string|null $title
+ * @property string|null $channel
+ * @property int|null $duration_seconds
+ * @property int $start_seconds
+ * @property int $end_seconds
+ * @property ClipAspectRatio $aspect_ratio
+ * @property ClipQuality $quality
+ * @property bool $subtitles_enabled
+ * @property SubtitleStatus|null $subtitle_status
+ * @property SubtitleStyle $subtitle_style
+ * @property ClipStatus $status
+ * @property int $progress
+ * @property string|null $output_disk
+ * @property string|null $output_path
+ * @property string|null $custom_file_name
+ * @property int|null $output_size_bytes
+ * @property CarbonImmutable|null $output_expires_at
+ * @property string|null $error_message
+ * @property string|null $requested_ip
+ * @property CarbonImmutable|null $created_at
+ * @property CarbonImmutable|null $updated_at
+ */
 class Clip extends Model
 {
     protected $fillable = [
@@ -63,6 +91,9 @@ class Clip extends Model
 
     /**
      * Clips that still occupy queue/worker capacity: queued or processing.
+     *
+     * @param  Builder<Clip>  $query
+     * @return Builder<Clip>
      */
     public function scopePending(Builder $query): Builder
     {
@@ -71,10 +102,14 @@ class Clip extends Model
 
     /**
      * Pending clips attributed to a single requesting IP.
+     *
+     * @param  Builder<Clip>  $query
+     * @return Builder<Clip>
      */
     public function scopePendingForIp(Builder $query, string $ip): Builder
     {
-        return $query->pending()->where('requested_ip', $ip);
+        return $query->whereIn('status', [ClipStatus::Queued, ClipStatus::Processing])
+            ->where('requested_ip', $ip);
     }
 
     public function fileName(): string

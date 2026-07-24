@@ -122,7 +122,7 @@ final class ClipMomentRecommender
                     break;
                 }
 
-                if ($duration >= 90 || mb_strlen($text) >= 720) {
+                if (mb_strlen($text) >= 720) {
                     break;
                 }
             }
@@ -231,7 +231,9 @@ final class ClipMomentRecommender
 
         arsort($categories);
 
-        return array_key_first($categories) ?: 'Argumen kuat';
+        $key = array_key_first($categories);
+
+        return is_string($key) ? $key : 'Argumen kuat';
     }
 
     /**
