@@ -14,13 +14,18 @@ export function TimecodeField({
     value: number;
 }) {
     const formattedValue = formatTimecode(value, forceHours);
+    const isEmpty = value === 0;
 
     function resetInput(input: HTMLInputElement) {
-        input.value = formattedValue;
+        input.value = isEmpty ? '' : formattedValue;
         input.setCustomValidity('');
     }
 
     function handleCommit(input: HTMLInputElement) {
+        if (input.value === '') {
+            return;
+        }
+
         if (onCommit(input.value)) {
             input.setCustomValidity('');
 
@@ -41,7 +46,8 @@ export function TimecodeField({
                 key={`${label}-${formattedValue}`}
                 type="text"
                 inputMode="numeric"
-                defaultValue={formattedValue}
+                defaultValue={isEmpty ? '' : formattedValue}
+                placeholder={formattedValue}
                 onBlur={(event) => handleCommit(event.currentTarget)}
                 onKeyDown={(event) => {
                     if (event.key === 'Enter') {

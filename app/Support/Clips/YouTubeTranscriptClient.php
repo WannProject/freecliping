@@ -19,32 +19,38 @@ final class YouTubeTranscriptClient
         $outputTemplate = "{$workDirectory}/transcript";
         $languages = $this->languages();
 
-        foreach ([true, false] as $manual) {
-            foreach ($languages as $language) {
-                $this->download($url, $outputTemplate, $manual, $language);
+        // A single yt-dlp call requests manual AND auto subs for every
+        // preferred language at once. This replaces up to 8 sequential
+        // invocations (2 kinds x 4 languages) that each re-downloaded the
+        // YouTube page and re-ran the JS runtime, which was both slow and a
+        // fast way to trigger YouTube's 429 rate limiting.
+        $this->download($url, $outputTemplate, $languages);
 
-                $source = $this->locateTranscript($workDirectory, $languages);
+        $source = $this->locateTranscript($workDirectory, $languages);
 
-                if ($source !== null) {
-                    return [
-                        'content' => File::get($source),
-                        'language' => $this->languageFromPath($source) ?? $language,
-                    ];
-                }
-            }
+        if ($source !== null) {
+            return [
+                'content' => File::get($source),
+                'language' => $this->languageFromPath($source) ?? $languages[0],
+            ];
         }
 
         throw new RuntimeException('Transcript atau caption YouTube tidak tersedia untuk video ini.');
     }
 
-    private function download(string $url, string $outputTemplate, bool $manual, string $language): void
+    /**
+     * @param  array<int, string>  $languages
+     */
+    private function download(string $url, string $outputTemplate, array $languages): void
     {
         try {
-            Process::timeout($this->timeout())->run([
+            Process::timeout($this->timeout())->run(array_filter([
                 $this->ytDlpBinary(),
-                $manual ? '--write-subs' : '--write-auto-subs',
+                $this->jsRuntimeArgument(),
+                '--write-subs',
+                '--write-auto-subs',
                 '--sub-langs',
-                $language,
+                implode(',', $languages),
                 '--sub-format',
                 'json3',
                 '--skip-download',
@@ -53,10 +59,26 @@ final class YouTubeTranscriptClient
                 '-o',
                 $outputTemplate,
                 $url,
-            ]);
+            ]));
         } catch (ProcessTimedOutException $exception) {
             throw new RuntimeException('yt-dlp terlalu lama mengambil transcript.', previous: $exception);
         }
+    }
+
+    /**
+     * Build the optional `--js-runtimes` argument so yt-dlp can fully extract
+     * YouTube data (including captions). Returns null when disabled, which
+     * array_filter strips from the command.
+     */
+    private function jsRuntimeArgument(): ?string
+    {
+        $runtime = config('freekliping.yt_dlp_js_runtime');
+
+        if (! is_string($runtime) || $runtime === '') {
+            return null;
+        }
+
+        return '--js-runtimes='.$runtime;
     }
 
     /**

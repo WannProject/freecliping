@@ -25,6 +25,7 @@ return new class extends Migration
             $table->string('aspect_ratio', 16)->default('original');
             $table->string('quality', 16)->default('source');
             $table->boolean('subtitles_enabled')->default(false);
+            $table->string('subtitle_style', 24)->default('word-highlight');
             $table->boolean('sync_output')->default(false);
             $table->string('status')->index();
             $table->unsignedTinyInteger('progress')->default(0);

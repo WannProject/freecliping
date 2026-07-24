@@ -6,6 +6,7 @@ use App\Enums\ClipAnalysisStatus;
 use App\Enums\ClipStatus;
 use App\Models\Clip;
 use App\Models\ClipAnalysis;
+use Carbon\CarbonInterface;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -61,7 +62,7 @@ class PruneExpiredClips extends Command
         return $expired->count();
     }
 
-    private function pruneStaleRecords($cutoff): int
+    private function pruneStaleRecords(CarbonInterface $cutoff): int
     {
         return Clip::query()
             ->where(function ($query) use ($cutoff): void {
@@ -76,7 +77,7 @@ class PruneExpiredClips extends Command
             ->delete();
     }
 
-    private function pruneStaleAnalyses($cutoff): int
+    private function pruneStaleAnalyses(CarbonInterface $cutoff): int
     {
         return ClipAnalysis::query()
             ->whereNotIn('status', [

@@ -29,14 +29,15 @@ final class YouTubeMetadataClient
 
         try {
             $result = Process::timeout(is_numeric($timeout) ? (int) $timeout : 20)
-                ->run([
+                ->run(array_filter([
                     $binary,
+                    $this->jsRuntimeArgument(),
                     '--dump-single-json',
                     '--skip-download',
                     '--no-warnings',
                     '--no-playlist',
                     $url,
-                ]);
+                ]));
         } catch (ProcessTimedOutException $exception) {
             throw new RuntimeException('yt-dlp terlalu lama membaca metadata. Coba lagi nanti.', previous: $exception);
         }
@@ -72,6 +73,22 @@ final class YouTubeMetadataClient
             thumbnailUrl: $this->thumbnailUrl($metadata),
             captions: $this->detectCaptions($metadata),
         );
+    }
+
+    /**
+     * Build the optional `--js-runtimes` argument so yt-dlp can fully extract
+     * YouTube data (including captions). Returns null when disabled, which
+     * array_filter strips from the command.
+     */
+    private function jsRuntimeArgument(): ?string
+    {
+        $runtime = config('freekliping.yt_dlp_js_runtime');
+
+        if (! is_string($runtime) || $runtime === '') {
+            return null;
+        }
+
+        return '--js-runtimes='.$runtime;
     }
 
     /**

@@ -21,10 +21,16 @@ return new class extends Migration
             $table->unsignedInteger('duration_seconds')->nullable();
             $table->unsignedInteger('start_seconds');
             $table->unsignedInteger('end_seconds');
+            $table->string('aspect_ratio', 16)->default('original');
+            $table->string('quality', 16)->default('source');
+            $table->boolean('subtitles_enabled')->default(false);
+            $table->string('subtitle_status')->nullable();
+            $table->string('subtitle_style', 24)->default('word-highlight');
             $table->string('status')->default('queued')->index();
             $table->unsignedTinyInteger('progress')->default(0);
             $table->string('output_disk')->nullable();
             $table->string('output_path')->nullable();
+            $table->string('custom_file_name')->nullable();
             $table->unsignedBigInteger('output_size_bytes')->nullable();
             $table->timestamp('output_expires_at')->nullable()->index();
             $table->text('error_message')->nullable();

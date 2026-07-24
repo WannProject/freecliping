@@ -6,9 +6,37 @@ use App\Enums\ClipAspectRatio;
 use App\Enums\ClipQuality;
 use App\Enums\LocalWorkerJobStatus;
 use App\Enums\SubtitleStyle;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property string $source_type
+ * @property string $source_url
+ * @property string|null $youtube_video_id
+ * @property string|null $title
+ * @property string|null $channel
+ * @property int|null $duration_seconds
+ * @property int $start_seconds
+ * @property int $end_seconds
+ * @property ClipAspectRatio $aspect_ratio
+ * @property ClipQuality $quality
+ * @property bool $subtitles_enabled
+ * @property SubtitleStyle $subtitle_style
+ * @property bool $sync_output
+ * @property LocalWorkerJobStatus $status
+ * @property int $progress
+ * @property string|null $local_output_path
+ * @property string $worker_token_hash
+ * @property array<string, mixed>|null $manifest
+ * @property string|null $error_message
+ * @property string|null $requested_ip
+ * @property CarbonImmutable|null $completed_at
+ * @property CarbonImmutable|null $created_at
+ * @property CarbonImmutable|null $updated_at
+ */
 class LocalWorkerJob extends Model
 {
     protected $fillable = [

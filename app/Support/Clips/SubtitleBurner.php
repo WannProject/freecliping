@@ -68,41 +68,30 @@ final class SubtitleBurner
      */
     private function downloadAndLocate(Clip $clip, string $outputTemplate, array $languages, string $format): ?string
     {
-        $source = null;
+        // A single yt-dlp call requests manual AND auto subs for every
+        // preferred language at once. This replaces up to 8 sequential
+        // invocations per format (2 kinds x 4 languages) that each
+        // re-downloaded the YouTube page and re-ran the JS runtime.
+        $this->download($clip, $outputTemplate, $languages, $format);
 
-        foreach ($languages as $language) {
-            $this->download($clip, $outputTemplate, manual: true, language: $language, format: $format);
-            $source = $this->locateSubtitle(dirname($outputTemplate), $languages, $format);
-
-            if ($source !== null) {
-                break;
-            }
-        }
-
-        if ($source === null) {
-            foreach ($languages as $language) {
-                $this->download($clip, $outputTemplate, manual: false, language: $language, format: $format);
-                $source = $this->locateSubtitle(dirname($outputTemplate), $languages, $format);
-
-                if ($source !== null) {
-                    break;
-                }
-            }
-        }
-
-        return $source;
+        return $this->locateSubtitle(dirname($outputTemplate), $languages, $format);
     }
 
-    private function download(Clip $clip, string $outputTemplate, bool $manual, string $language, string $format): void
+    /**
+     * @param  array<int, string>  $languages
+     */
+    private function download(Clip $clip, string $outputTemplate, array $languages, string $format): void
     {
-        $command = [
+        $command = array_filter([
             $this->ytDlpBinary(),
-            $manual ? '--write-subs' : '--write-auto-subs',
+            $this->jsRuntimeArgument(),
+            '--write-subs',
+            '--write-auto-subs',
             '--sub-langs',
-            $language,
+            implode(',', $languages),
             '--sub-format',
             $format === 'json3' ? 'json3' : 'best',
-        ];
+        ]);
 
         if ($format === 'srt') {
             array_push($command, '--convert-subs', 'srt');
@@ -123,6 +112,22 @@ final class SubtitleBurner
         } catch (ProcessTimedOutException $exception) {
             throw new RuntimeException('yt-dlp terlalu lama mengambil subtitle.', previous: $exception);
         }
+    }
+
+    /**
+     * Build the optional `--js-runtimes` argument so yt-dlp can fully extract
+     * YouTube data (including captions). Returns null when disabled, which
+     * array_filter strips from the command.
+     */
+    private function jsRuntimeArgument(): ?string
+    {
+        $runtime = config('freekliping.yt_dlp_js_runtime');
+
+        if (! is_string($runtime) || $runtime === '') {
+            return null;
+        }
+
+        return '--js-runtimes='.$runtime;
     }
 
     /**
@@ -248,6 +253,7 @@ ASS;
     }
 
     /**
+     * @param  array<int, array{text: string, start: int, end: int}>  $words
      * @return array{start: int, end: int, words: array<int, array{text: string, start: int, end: int}>}
      */
     private function wordGroup(array $words): array
@@ -501,6 +507,11 @@ ASS;
 
     private function srtToMs(string $timestamp): int
     {
+        $hours = 0;
+        $minutes = 0;
+        $seconds = 0;
+        $milliseconds = 0;
+
         sscanf($timestamp, '%d:%d:%d,%d', $hours, $minutes, $seconds, $milliseconds);
 
         return (($hours * 60 + $minutes) * 60 + $seconds) * 1000 + $milliseconds;
@@ -680,7 +691,7 @@ ASS;
      */
     private function assLineForGroup(array $group, array $style): string
     {
-        if (! ($style['animateActive'] ?? false)) {
+        if (! $style['animateActive']) {
             return collect($group['words'])
                 ->map(fn (array $word): string => $word['text'])
                 ->implode(' ');
