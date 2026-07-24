@@ -98,8 +98,9 @@ final class ClipProcessor
     {
         try {
             $result = Process::timeout($this->processingTimeout())
-                ->run([
+                ->run(array_values(array_filter([
                     $this->ytDlpBinary(),
+                    $this->jsRuntimeArgument(),
                     '--download-sections',
                     sprintf('*%s-%s', $this->timecode($downloadStart), $this->timecode($downloadEnd)),
                     '-f',
@@ -110,7 +111,7 @@ final class ClipProcessor
                     '-o',
                     $sourcePattern,
                     $clip->source_url,
-                ]);
+                ])));
         } catch (ProcessTimedOutException $exception) {
             throw new RuntimeException('yt-dlp terlalu lama mengambil stream video.', previous: $exception);
         }
@@ -118,6 +119,22 @@ final class ClipProcessor
         if ($result->failed()) {
             throw new RuntimeException($this->processFailureMessage('yt-dlp', $result->errorOutput()));
         }
+    }
+
+    /**
+     * Build the optional `--js-runtimes` argument so yt-dlp can fully extract
+     * YouTube data (including formats and captions). Returns null when
+     * disabled, which array_filter strips from the command.
+     */
+    private function jsRuntimeArgument(): ?string
+    {
+        $runtime = config('freekliping.yt_dlp_js_runtime');
+
+        if (! is_string($runtime) || $runtime === '') {
+            return null;
+        }
+
+        return '--js-runtimes='.$runtime;
     }
 
     private function prepareSubtitles(Clip $clip, string $workDirectory, int $downloadStart): ?string
@@ -164,16 +181,29 @@ final class ClipProcessor
         $videoFilter = $this->videoFilter($clip, $subtitlePath);
 
         if ($videoFilter !== null) {
-            $command[] = '-vf';
-            $command[] = $videoFilter;
+            array_push(
+                $command,
+                '-vf',
+                $videoFilter,
+                '-c:v',
+                'libx264',
+                '-preset',
+                $this->ffmpegPreset(),
+                '-crf',
+                '23',
+                '-c:a',
+                'aac',
+            );
+        } else {
+            // No crop/scale/subtitles: stream-copy instead of a full
+            // libx264 re-encode. This skips the expensive encode pass and
+            // is near-instant versus the original always-re-encode behaviour.
+            $command[] = '-c';
+            $command[] = 'copy';
         }
 
         array_push(
             $command,
-            '-c:v',
-            'libx264',
-            '-c:a',
-            'aac',
             '-movflags',
             '+faststart',
             $outputFile,
@@ -189,6 +219,13 @@ final class ClipProcessor
         if ($result->failed()) {
             throw new RuntimeException($this->processFailureMessage('ffmpeg', $result->errorOutput()));
         }
+    }
+
+    private function ffmpegPreset(): string
+    {
+        $preset = config('freekliping.ffmpeg_preset');
+
+        return is_string($preset) && $preset !== '' ? $preset : 'veryfast';
     }
 
     private function videoFilter(Clip $clip, ?string $subtitlePath = null): ?string

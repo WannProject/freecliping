@@ -151,9 +151,11 @@ test('analysis job turns a json3 transcript into ranked recommendations', functi
 
     Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
         'yt-dlp',
+        '--js-runtimes=node',
         '--write-subs',
+        '--write-auto-subs',
         '--sub-langs',
-        'id',
+        'id,id-orig,en',
         '--sub-format',
         'json3',
         '--skip-download',

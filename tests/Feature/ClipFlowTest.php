@@ -99,6 +99,7 @@ test('metadata endpoint returns youtube metadata from yt dlp', function () {
     Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->timeout === 20
         && $process->command === [
             'yt-dlp',
+            '--js-runtimes=node',
             '--dump-single-json',
             '--skip-download',
             '--no-warnings',
@@ -345,6 +346,7 @@ test('processing job creates an mp4 output and marks clip completed', function (
 
     Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
         'yt-dlp',
+        '--js-runtimes=node',
         '--download-sections',
         '*00:00:27-00:01:03',
         '-f',
@@ -366,10 +368,8 @@ test('processing job creates an mp4 output and marks clip completed', function (
         '3',
         '-t',
         '30',
-        '-c:v',
-        'libx264',
-        '-c:a',
-        'aac',
+        '-c',
+        'copy',
         '-movflags',
         '+faststart',
         "{$workDirectory}/output.mp4",
@@ -413,6 +413,7 @@ test('processing job applies selected aspect ratio and quality', function () {
 
     Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
         'yt-dlp',
+        '--js-runtimes=node',
         '--download-sections',
         '*00:00:27-00:01:03',
         '-f',
@@ -438,6 +439,10 @@ test('processing job applies selected aspect ratio and quality', function () {
         'crop=min(iw\,ih*9/16):min(ih\,iw*16/9),scale=720:1280',
         '-c:v',
         'libx264',
+        '-preset',
+        'veryfast',
+        '-crf',
+        '23',
         '-c:a',
         'aac',
         '-movflags',
@@ -488,9 +493,11 @@ test('processing job burns requested subtitles when a caption track is available
 
     Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
         'yt-dlp',
+        '--js-runtimes=node',
         '--write-subs',
+        '--write-auto-subs',
         '--sub-langs',
-        'en',
+        'en,id,id-orig',
         '--sub-format',
         'best',
         '--convert-subs',
@@ -516,6 +523,10 @@ test('processing job burns requested subtitles when a caption track is available
         'subtitles='.addcslashes("{$workDirectory}/subtitle.styled.ass", '\\:'),
         '-c:v',
         'libx264',
+        '-preset',
+        'veryfast',
+        '-crf',
+        '23',
         '-c:a',
         'aac',
         '-movflags',
@@ -715,9 +726,11 @@ test('processing job marks subtitles unavailable when no caption track is downlo
 
     Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
         'yt-dlp',
+        '--js-runtimes=node',
+        '--write-subs',
         '--write-auto-subs',
         '--sub-langs',
-        'id',
+        'en,id,id-orig',
         '--sub-format',
         'best',
         '--convert-subs',

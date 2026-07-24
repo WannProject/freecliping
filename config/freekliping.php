@@ -49,12 +49,23 @@ return [
 
     'yt_dlp_binary' => env('FREEKLIPING_YT_DLP_BINARY', 'yt-dlp'),
 
+    // yt-dlp needs a JavaScript runtime to fully extract YouTube metadata and
+    // captions. Without it, captions silently go missing (see yt-dlp warning
+    // about deprecated JS-less extraction). Node is the most common runtime.
+    'yt_dlp_js_runtime' => env('FREEKLIPING_YT_DLP_JS_RUNTIME', 'node'),
+
     'ffmpeg_binary' => env('FREEKLIPING_FFMPEG_BINARY', 'ffmpeg'),
+
+    // libx264 encoding preset. The default ("medium") is slow on a VPS;
+    // "veryfast" cuts encode time roughly 3-5x with negligible quality loss
+    // for short clips. Stream-copy is used automatically when no filter
+    // (crop/scale/subtitles) is needed, skipping the encode entirely.
+    'ffmpeg_preset' => env('FREEKLIPING_FFMPEG_PRESET', 'veryfast'),
 
     // Preferred caption language (BCP-47 code). Falls back to id, id-orig, then en.
     'subtitle_language' => env('FREEKLIPING_SUBTITLE_LANGUAGE', 'id'),
 
-    'metadata_timeout' => (int) env('FREEKLIPING_METADATA_TIMEOUT', 20),
+    'metadata_timeout' => (int) env('FREEKLIPING_METADATA_TIMEOUT', 45),
 
     'processing_timeout' => (int) env('FREEKLIPING_PROCESSING_TIMEOUT', 600),
 

@@ -26,12 +26,15 @@ import {
     aspectRatioOptions,
     qualityLabel,
     qualityOptions,
+    subtitleStyleLabel,
+    subtitleStyleOptions,
 } from '../clip-editor.constants';
 import type {
     ClipAspectRatio,
     ClipQuality,
     ClipRecommendation,
     ExportOptions,
+    SubtitleStyle,
     VideoMeta,
 } from '../clip-editor.types';
 import { formatTimecode } from '../clip-editor.utils';
@@ -170,13 +173,15 @@ function RecommendationCard({
     const [quality, setQuality] = useState<ClipQuality>('720p');
     const [aspectRatio, setAspectRatio] = useState<ClipAspectRatio>('9:16');
     const [subtitlesEnabled, setSubtitlesEnabled] = useState(hasCaptions);
+    const [subtitleStyle, setSubtitleStyle] =
+        useState<SubtitleStyle>('word-highlight');
     const localWorkerLoading = localWorkerLoadingId === recommendation.id;
 
     const exportOptions: ExportOptions = {
         aspectRatio,
         quality,
         subtitlesEnabled,
-        subtitleStyle: 'word-highlight',
+        subtitleStyle,
     };
 
     return (
@@ -283,7 +288,7 @@ function RecommendationCard({
                             <span className="block truncate text-[12.5px] font-medium text-foreground">
                                 {hasCaptions
                                     ? subtitlesEnabled
-                                        ? 'Word highlight'
+                                        ? subtitleStyleLabel(subtitleStyle)
                                         : 'Off'
                                     : 'Unavailable'}
                             </span>
@@ -298,6 +303,25 @@ function RecommendationCard({
                             className="size-4 rounded border-border bg-background accent-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-45"
                         />
                     </label>
+
+                    {hasCaptions ? (
+                        <ControlSelect
+                            label="Subtitle style"
+                            onValueChange={(value) =>
+                                setSubtitleStyle(value as SubtitleStyle)
+                            }
+                            value={subtitleStyle}
+                        >
+                            {subtitleStyleOptions.map((option) => (
+                                <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                >
+                                    {option.label}
+                                </SelectItem>
+                            ))}
+                        </ControlSelect>
+                    ) : null}
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
