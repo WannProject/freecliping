@@ -258,9 +258,12 @@ ASS;
      */
     private function wordGroup(array $words): array
     {
+        $first = $words[0] ?? ['start' => 0];
+        $last = $words[array_key_last($words)] ?? ['end' => 0];
+
         return [
-            'start' => max(0, $words[0]['start'] - 80),
-            'end' => $words[array_key_last($words)]['end'] + 160,
+            'start' => max(0, $first['start'] - 80),
+            'end' => $last['end'] + 160,
             'words' => $words,
         ];
     }
@@ -507,12 +510,12 @@ ASS;
 
     private function srtToMs(string $timestamp): int
     {
-        $hours = 0;
-        $minutes = 0;
-        $seconds = 0;
-        $milliseconds = 0;
+        $matches = [];
+        if (! preg_match('/^(\d+):(\d+):(\d+),(\d+)$/', $timestamp, $matches)) {
+            return 0;
+        }
 
-        sscanf($timestamp, '%d:%d:%d,%d', $hours, $minutes, $seconds, $milliseconds);
+        [$hours, $minutes, $seconds, $milliseconds] = array_map('intval', array_slice($matches, 1));
 
         return (($hours * 60 + $minutes) * 60 + $seconds) * 1000 + $milliseconds;
     }

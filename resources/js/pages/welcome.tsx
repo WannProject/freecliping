@@ -4,6 +4,7 @@ import {
     Copy,
     Cpu,
     Download,
+    Github,
     Heart,
     LoaderCircle,
     SlidersHorizontal,
@@ -49,6 +50,7 @@ import { EmptyState } from '@/features/clip-editor/components/empty-state';
 import { RecommendationGallery } from '@/features/clip-editor/components/recommendation-gallery';
 import { UrlInput } from '@/features/clip-editor/components/url-input';
 import { VideoPreview } from '@/features/clip-editor/components/video-preview';
+import { GITHUB_REPOSITORY_URL } from '@/lib/links';
 import { privacy, terms } from '@/routes';
 
 type ClipWorkspaceTab = 'recommended' | 'manual';
@@ -599,6 +601,15 @@ export default function Welcome({
                         </Link>
 
                         <div className="flex items-center gap-2">
+                            <a
+                                href={GITHUB_REPOSITORY_URL}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="hidden h-9 items-center justify-center gap-2 rounded-md bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:bg-border sm:inline-flex"
+                            >
+                                <Github className="size-3.5" />
+                                GitHub
+                            </a>
                             <a
                                 href={supportUrl}
                                 target="_blank"
@@ -1151,14 +1162,25 @@ function SupportCard({ supportUrl }: { supportUrl: string }) {
                         running.
                     </p>
                 </div>
-                <a
-                    href={supportUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-border"
-                >
-                    Support on Saweria
-                </a>
+                <div className="flex items-center gap-2">
+                    <a
+                        href={GITHUB_REPOSITORY_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-border"
+                    >
+                        <Github className="size-4" />
+                        GitHub
+                    </a>
+                    <a
+                        href={supportUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-border"
+                    >
+                        Support on Saweria
+                    </a>
+                </div>
             </div>
             <nav className="mx-auto mt-5 flex max-w-6xl justify-center gap-5 font-mono text-[11px] text-muted-foreground">
                 <Link
@@ -1173,6 +1195,14 @@ function SupportCard({ supportUrl }: { supportUrl: string }) {
                 >
                     Terms
                 </Link>
+                <a
+                    href={GITHUB_REPOSITORY_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
+                >
+                    GitHub
+                </a>
             </nav>
         </section>
     );

@@ -576,6 +576,37 @@ test('subtitle burner writes styled ass tuned for vertical clips', function () {
     File::deleteDirectory($workDirectory);
 });
 
+test('subtitle burner ignores malformed srt cues without writing styled ass', function () {
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    config(['freekliping.subtitle_language' => 'id']);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'subtitles_enabled' => true,
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $workDirectory = storage_path("app/clip-processing/{$clip->uuid}");
+    File::ensureDirectoryExists($workDirectory);
+    File::put("{$workDirectory}/subtitle.id.srt", "1\nnot-a-time --> also-not-a-time\n\n2\n00:00:31,000 --> 00:00:32,000\n");
+
+    expect(app(SubtitleBurner::class)->prepare($clip, $workDirectory, 27))->toBeNull();
+    expect(File::exists("{$workDirectory}/subtitle.styled.ass"))->toBeFalse();
+
+    File::deleteDirectory($workDirectory);
+});
+
 test('subtitle burner uses json3 word timing for active word highlights', function () {
     Process::preventStrayProcesses();
     Process::fake([

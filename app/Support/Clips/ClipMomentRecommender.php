@@ -23,21 +23,29 @@ final class ClipMomentRecommender
         return collect($candidates)
             ->map(fn (array $candidate): array => $this->scoreCandidate($candidate))
             ->sortByDesc('score')
-            ->reduce(function (array $selected, array $candidate): array {
-                if (count($selected) >= 6) {
-                    return $selected;
-                }
-
-                foreach ($selected as $existing) {
-                    if ($this->overlapRatio($existing, $candidate) > 0.55) {
+            ->reduce(
+                /**
+                 * @param  array<int, array{startSeconds: int, endSeconds: int, score: int, title: string, hook: string, category: string, emotion: string, reason: string, openingText: string, caption: string, transcriptExcerpt: string, duration: int, id: string}>  $selected
+                 * @param  array{startSeconds: int, endSeconds: int, score: int, title: string, hook: string, category: string, emotion: string, reason: string, openingText: string, caption: string, transcriptExcerpt: string, duration: int, id: string}  $candidate
+                 * @return array<int, array{startSeconds: int, endSeconds: int, score: int, title: string, hook: string, category: string, emotion: string, reason: string, openingText: string, caption: string, transcriptExcerpt: string, duration: int, id: string}>
+                 */
+                function (array $selected, array $candidate): array {
+                    if (count($selected) >= 6) {
                         return $selected;
                     }
-                }
 
-                $selected[] = $candidate;
+                    foreach ($selected as $existing) {
+                        if ($this->overlapRatio($existing, $candidate) > 0.55) {
+                            return $selected;
+                        }
+                    }
 
-                return $selected;
-            }, []);
+                    $selected[] = $candidate;
+
+                    return $selected;
+                },
+                []
+            );
     }
 
     /**
@@ -233,7 +241,7 @@ final class ClipMomentRecommender
 
         $key = array_key_first($categories);
 
-        return is_string($key) ? $key : 'Argumen kuat';
+        return $key;
     }
 
     /**
@@ -256,6 +264,9 @@ final class ClipMomentRecommender
         return 'penasaran';
     }
 
+    /**
+     * @param  array{hook: int, debate: int, emotion: int, solution: int, humor: int}  $signals
+     */
     private function reason(array $signals, int $duration, float $wordsPerSecond): string
     {
         $reasons = [];
@@ -333,8 +344,8 @@ final class ClipMomentRecommender
     }
 
     /**
-     * @param  array{startSeconds: int, endSeconds: int}  $first
-     * @param  array{startSeconds: int, endSeconds: int}  $second
+     * @param  array{startSeconds: int, endSeconds: int}|array<string, mixed>  $first
+     * @param  array{startSeconds: int, endSeconds: int}|array<string, mixed>  $second
      */
     private function overlapRatio(array $first, array $second): float
     {

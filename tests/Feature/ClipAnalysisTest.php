@@ -167,6 +167,36 @@ test('analysis job turns a json3 transcript into ranked recommendations', functi
     ]);
 });
 
+test('moment recommender skips heavily overlapping candidate windows', function () {
+    $content = json_encode([
+        'events' => collect(range(0, 9))
+            ->map(fn (int $index): array => analysisEvent(
+                $index * 4000,
+                4000,
+                'Kalau sistem korupsi terus dibiarkan, rakyat marah dan solusi transparan harus dibuka sekarang.',
+            ))
+            ->all(),
+    ], JSON_THROW_ON_ERROR);
+
+    $recommendations = app(ClipMomentRecommender::class)->recommendFromJson3($content, 45);
+
+    expect($recommendations)->not->toBeEmpty();
+
+    foreach ($recommendations as $index => $recommendation) {
+        foreach (array_slice($recommendations, $index + 1) as $otherRecommendation) {
+            $overlapStart = max($recommendation['startSeconds'], $otherRecommendation['startSeconds']);
+            $overlapEnd = min($recommendation['endSeconds'], $otherRecommendation['endSeconds']);
+            $overlapSeconds = max(0, $overlapEnd - $overlapStart);
+            $shortestDuration = min(
+                $recommendation['endSeconds'] - $recommendation['startSeconds'],
+                $otherRecommendation['endSeconds'] - $otherRecommendation['startSeconds'],
+            );
+
+            expect($overlapSeconds / $shortestDuration)->toBeLessThanOrEqual(0.55);
+        }
+    }
+});
+
 test('analysis status endpoint returns recommendations', function () {
     $analysis = ClipAnalysis::query()->create([
         'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
