@@ -442,12 +442,12 @@ Exit criteria Phase 1A:
 
 ### 6D - Whisper
 
-- [ ] Evaluasi faster-whisper.
-- [ ] Tentukan model.
-- [ ] Queue transcription.
-- [ ] Generate subtitle audio.
-- [ ] Cache.
-- [ ] Benchmark.
+- [x] Evaluasi faster-whisper.
+- [x] Tentukan model.
+- [x] Queue transcription.
+- [x] Generate subtitle audio.
+- [x] Cache.
+- [x] Benchmark.
 
 ## Phase 7 - Storage and Cost Optimization
 

@@ -5,11 +5,13 @@ namespace App\Jobs;
 use App\Enums\ClipAnalysisStatus;
 use App\Models\ClipAnalysis;
 use App\Support\Clips\ClipMomentRecommender;
+use App\Support\Clips\WhisperTranscriber;
 use App\Support\Clips\YouTubeTranscriptClient;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 class ProcessClipAnalysis implements ShouldQueue
@@ -18,7 +20,7 @@ class ProcessClipAnalysis implements ShouldQueue
 
     public int $tries = 2;
 
-    public int $timeout = 120;
+    public int $timeout = 1900;
 
     /**
      * @var array<int, int>
@@ -30,7 +32,7 @@ class ProcessClipAnalysis implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(YouTubeTranscriptClient $transcriptClient, ClipMomentRecommender $recommender): void
+    public function handle(YouTubeTranscriptClient $transcriptClient, WhisperTranscriber $whisperTranscriber, ClipMomentRecommender $recommender): void
     {
         $analysis = ClipAnalysis::query()->findOrFail($this->analysisId);
         $workDirectory = storage_path("app/clip-analysis/{$analysis->uuid}");
@@ -44,7 +46,20 @@ class ProcessClipAnalysis implements ShouldQueue
         Log::info('clip analysis started', ['analysis' => $analysis->uuid]);
 
         try {
-            $transcript = $transcriptClient->fetchJson3($analysis->source_url, $workDirectory);
+            try {
+                $transcript = $transcriptClient->fetchJson3($analysis->source_url, $workDirectory);
+            } catch (RuntimeException $exception) {
+                if (! $whisperTranscriber->enabled()) {
+                    throw $exception;
+                }
+
+                Log::info('falling back to whisper transcript', [
+                    'analysis' => $analysis->uuid,
+                    'reason' => $exception->getMessage(),
+                ]);
+
+                $transcript = $whisperTranscriber->transcribe($analysis, $workDirectory);
+            }
 
             $analysis->update(['progress' => 55]);
 
@@ -54,7 +69,7 @@ class ProcessClipAnalysis implements ShouldQueue
             );
 
             if ($recommendations === []) {
-                throw new \RuntimeException('Transcript ditemukan, tetapi tidak ada kandidat klip yang cukup kuat.');
+                throw new RuntimeException('Transcript ditemukan, tetapi tidak ada kandidat klip yang cukup kuat.');
             }
 
             $analysis->update([

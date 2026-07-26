@@ -7,6 +7,7 @@ use App\Enums\ClipAnalysisStatus;
 use App\Http\Requests\StoreClipAnalysisRequest;
 use App\Jobs\ProcessClipAnalysis;
 use App\Models\ClipAnalysis;
+use App\Support\Clips\WhisperTranscriber;
 use App\Support\Clips\YouTubeMetadataClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ use RuntimeException;
 
 class ClipAnalysisController extends Controller
 {
-    public function store(StoreClipAnalysisRequest $request, YouTubeMetadataClient $metadataClient): JsonResponse
+    public function store(StoreClipAnalysisRequest $request, YouTubeMetadataClient $metadataClient, WhisperTranscriber $whisperTranscriber): JsonResponse
     {
         if ($overloaded = $this->capacityResponse($request)) {
             return $overloaded;
@@ -30,9 +31,9 @@ class ClipAnalysisController extends Controller
             ], $status);
         }
 
-        if (! $video->captions->available()) {
+        if (! $video->captions->available() && ! $whisperTranscriber->enabled()) {
             return response()->json([
-                'message' => 'Video ini belum punya caption/transcript yang bisa dianalisis. Nanti bisa diproses lewat Whisper.',
+                'message' => 'Video ini belum punya caption/transcript yang bisa dianalisis. Aktifkan Whisper untuk fallback transcription.',
             ], 422);
         }
 

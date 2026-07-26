@@ -81,6 +81,18 @@ return [
         'smoothing' => (float) env('FREEKLIPING_SMART_CROP_SMOOTHING', 0.65),
     ],
 
+    'whisper' => [
+        'enabled' => (bool) env('FREEKLIPING_WHISPER_ENABLED', false),
+        'binary' => env('FREEKLIPING_WHISPER_BINARY', base_path('app/Support/Clips/whisper_transcribe.py')),
+        'model' => env('FREEKLIPING_WHISPER_MODEL', 'small'),
+        'device' => env('FREEKLIPING_WHISPER_DEVICE', 'cpu'),
+        'compute_type' => env('FREEKLIPING_WHISPER_COMPUTE_TYPE', 'int8'),
+        'timeout' => (int) env('FREEKLIPING_WHISPER_TIMEOUT', 1800),
+        'beam_size' => (int) env('FREEKLIPING_WHISPER_BEAM_SIZE', 5),
+        'cache_disk' => env('FREEKLIPING_WHISPER_CACHE_DISK', 'local'),
+        'cache_path' => env('FREEKLIPING_WHISPER_CACHE_PATH', 'clip-analysis/transcripts'),
+    ],
+
     'output_disk' => env('FREEKLIPING_OUTPUT_DISK', env('FILESYSTEM_DISK', 'local')),
 
     'support_url' => env('FREEKLIPING_SUPPORT_URL', 'https://saweria.co/freekliping'),
