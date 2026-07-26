@@ -52,8 +52,9 @@ final class SmartCropPlanner
     private function detectFocusPoints(Clip $clip, string $sourceFile, int $startSeconds, int $durationSeconds): array
     {
         $binary = $this->detectorBinary();
+        $model = $this->detectorModel();
 
-        if ($binary === null) {
+        if ($binary === null || $model === null) {
             return [];
         }
 
@@ -62,6 +63,7 @@ final class SmartCropPlanner
 
         $command = [
             $binary,
+            '--model='.$model,
             '--input',
             $sourceFile,
             '--start',
@@ -305,6 +307,13 @@ final class SmartCropPlanner
         $binary = config('freekliping.smart_crop.detector_binary');
 
         return is_string($binary) && $binary !== '' ? $binary : null;
+    }
+
+    private function detectorModel(): ?string
+    {
+        $model = config('freekliping.smart_crop.detector_model');
+
+        return is_string($model) && $model !== '' ? $model : null;
     }
 
     private function detectorTimeout(): int

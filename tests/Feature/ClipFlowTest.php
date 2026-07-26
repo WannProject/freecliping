@@ -481,6 +481,14 @@ test('smart crop planner falls back to center crop when detector is not configur
     Process::assertDidntRun('*');
 });
 
+test('smart crop detector script is configured as the default detector binary', function () {
+    $binary = config('freekliping.smart_crop.detector_binary');
+
+    expect($binary)
+        ->toBe(base_path('app/Support/Clips/smart_crop_detect.py'))
+        ->and(is_executable($binary))->toBeTrue();
+});
+
 test('smart crop planner creates smoothed animated crop filters from detector points', function () {
     Process::preventStrayProcesses();
     Process::fake([
@@ -495,6 +503,7 @@ test('smart crop planner creates smoothed animated crop filters from detector po
     config([
         'freekliping.smart_crop.mode' => 'smart',
         'freekliping.smart_crop.detector_binary' => 'smart-crop-detect',
+        'freekliping.smart_crop.detector_model' => '/models/yolo.onnx',
         'freekliping.smart_crop.smoothing' => 0.5,
     ]);
 
@@ -524,6 +533,7 @@ test('smart crop planner creates smoothed animated crop filters from detector po
 
     Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
         'smart-crop-detect',
+        '--model=/models/yolo.onnx',
         '--input',
         $sourceFile,
         '--start',

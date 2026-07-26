@@ -433,7 +433,7 @@ Exit criteria Phase 1A:
 
 - [x] Riset OpenCV, MediaPipe, atau YOLO ringan.
 - [x] Center crop dan Smart crop.
-- [ ] Subject detection built-in.
+- [x] Subject detection built-in.
 - [x] Subject detection hook.
 - [x] Crop window.
 - [x] Smoothing.

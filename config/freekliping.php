@@ -73,7 +73,8 @@ return [
 
     'smart_crop' => [
         'mode' => env('FREEKLIPING_CROP_MODE', 'center'),
-        'detector_binary' => env('FREEKLIPING_SMART_CROP_DETECTOR_BINARY'),
+        'detector_binary' => env('FREEKLIPING_SMART_CROP_DETECTOR_BINARY', base_path('app/Support/Clips/smart_crop_detect.py')),
+        'detector_model' => env('FREEKLIPING_SMART_CROP_MODEL'),
         'detector_timeout' => (int) env('FREEKLIPING_SMART_CROP_DETECTOR_TIMEOUT', 30),
         'min_confidence' => (float) env('FREEKLIPING_SMART_CROP_MIN_CONFIDENCE', 0.35),
         'max_points' => (int) env('FREEKLIPING_SMART_CROP_MAX_POINTS', 24),
