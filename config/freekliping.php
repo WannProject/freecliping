@@ -71,6 +71,15 @@ return [
 
     'download_buffer_seconds' => (int) env('FREEKLIPING_DOWNLOAD_BUFFER_SECONDS', 3),
 
+    'smart_crop' => [
+        'mode' => env('FREEKLIPING_CROP_MODE', 'center'),
+        'detector_binary' => env('FREEKLIPING_SMART_CROP_DETECTOR_BINARY'),
+        'detector_timeout' => (int) env('FREEKLIPING_SMART_CROP_DETECTOR_TIMEOUT', 30),
+        'min_confidence' => (float) env('FREEKLIPING_SMART_CROP_MIN_CONFIDENCE', 0.35),
+        'max_points' => (int) env('FREEKLIPING_SMART_CROP_MAX_POINTS', 24),
+        'smoothing' => (float) env('FREEKLIPING_SMART_CROP_SMOOTHING', 0.65),
+    ],
+
     'output_disk' => env('FREEKLIPING_OUTPUT_DISK', env('FILESYSTEM_DISK', 'local')),
 
     'support_url' => env('FREEKLIPING_SUPPORT_URL', 'https://saweria.co/freekliping'),

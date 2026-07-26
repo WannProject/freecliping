@@ -15,7 +15,10 @@ use Throwable;
 
 final class ClipProcessor
 {
-    public function __construct(private readonly SubtitleBurner $subtitleBurner) {}
+    public function __construct(
+        private readonly SubtitleBurner $subtitleBurner,
+        private readonly SmartCropPlanner $smartCropPlanner,
+    ) {}
 
     public function process(Clip $clip): void
     {
@@ -176,7 +179,7 @@ final class ClipProcessor
             (string) $durationSeconds,
         ];
 
-        $videoFilter = $this->videoFilter($clip, $subtitlePath);
+        $videoFilter = $this->videoFilter($clip, $sourceFile, $startSeconds, $durationSeconds, $subtitlePath);
 
         if ($videoFilter !== null) {
             array_push(
@@ -226,10 +229,10 @@ final class ClipProcessor
         return is_string($preset) && $preset !== '' ? $preset : 'veryfast';
     }
 
-    private function videoFilter(Clip $clip, ?string $subtitlePath = null): ?string
+    private function videoFilter(Clip $clip, string $sourceFile, int $startSeconds, int $durationSeconds, ?string $subtitlePath = null): ?string
     {
         $filters = collect([
-            $clip->aspect_ratio->cropFilter(),
+            $this->smartCropPlanner->filter($clip, $sourceFile, $startSeconds, $durationSeconds),
             $clip->quality->scaleFilter($clip->aspect_ratio),
         ])->filter()->values();
 

@@ -7,6 +7,7 @@ use App\Enums\SubtitleStatus;
 use App\Jobs\ProcessClip;
 use App\Models\Clip;
 use App\Support\Clips\ClipProcessor;
+use App\Support\Clips\SmartCropPlanner;
 use App\Support\Clips\SubtitleBurner;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Process\PendingProcess;
@@ -449,6 +450,110 @@ test('processing job applies selected aspect ratio and quality', function () {
         '+faststart',
         "{$workDirectory}/output.mp4",
     ]);
+});
+
+test('smart crop planner falls back to center crop when detector is not configured', function () {
+    Process::preventStrayProcesses();
+    Process::fake();
+
+    config([
+        'freekliping.smart_crop.mode' => 'smart',
+        'freekliping.smart_crop.detector_binary' => null,
+    ]);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'aspect_ratio' => ClipAspectRatio::Vertical,
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $filter = app(SmartCropPlanner::class)->filter($clip, '/tmp/source.mp4', 3, 30);
+
+    expect($filter)->toBe('crop=min(iw\,ih*9/16):min(ih\,iw*16/9)');
+
+    Process::assertDidntRun('*');
+});
+
+test('smart crop planner creates smoothed animated crop filters from detector points', function () {
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(json_encode([
+            'points' => [
+                ['time' => 0, 'x' => 0.2, 'y' => 0.5, 'confidence' => 0.9],
+                ['time' => 6, 'x' => 0.8, 'y' => 0.5, 'confidence' => 0.9],
+            ],
+        ], JSON_THROW_ON_ERROR)),
+    ]);
+
+    config([
+        'freekliping.smart_crop.mode' => 'smart',
+        'freekliping.smart_crop.detector_binary' => 'smart-crop-detect',
+        'freekliping.smart_crop.smoothing' => 0.5,
+    ]);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'aspect_ratio' => ClipAspectRatio::Vertical,
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $sourceFile = storage_path("app/clip-processing/{$clip->uuid}/source.mp4");
+
+    $filter = app(SmartCropPlanner::class)->filter($clip, $sourceFile, 3, 12);
+
+    expect($filter)
+        ->toStartWith('crop=min(iw\,ih*9/16):min(ih\,iw*16/9):')
+        ->toContain('if(lt(t\,6.000)\,0.200+(0.500-0.200)*(t-0.000)/6.000')
+        ->toContain('min(max(')
+        ->toContain('\,iw-ow)')
+        ->toContain('\,ih-oh)');
+
+    Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
+        'smart-crop-detect',
+        '--input',
+        $sourceFile,
+        '--start',
+        '3',
+        '--duration',
+        '12',
+        '--aspect-ratio',
+        '9:16',
+        '--output',
+        storage_path("app/clip-processing/{$clip->uuid}/smart-crop.json"),
+    ]);
+});
+
+test('smart crop benchmark command compares center and smart planning', function () {
+    Process::preventStrayProcesses();
+    Process::fake();
+
+    $sourceFile = storage_path('app/clip-processing/benchmark-source.mp4');
+    File::ensureDirectoryExists(dirname($sourceFile));
+    File::put($sourceFile, 'source-video');
+
+    $this->artisan('clips:smart-crop:benchmark', [
+        'source' => $sourceFile,
+        '--aspect-ratio' => '9:16',
+        '--duration' => 12,
+    ])->assertSuccessful();
+
+    Process::assertDidntRun('*');
+
+    File::delete($sourceFile);
 });
 
 test('processing job burns requested subtitles when a caption track is available', function () {

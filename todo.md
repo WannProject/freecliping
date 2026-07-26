@@ -431,13 +431,14 @@ Exit criteria Phase 1A:
 
 ### 6C - Smart Crop
 
-- [ ] Riset OpenCV, MediaPipe, atau YOLO ringan.
-- [ ] Center crop dan Smart crop.
-- [ ] Subject detection.
-- [ ] Crop window.
-- [ ] Smoothing.
-- [ ] Fallback center crop.
-- [ ] Benchmark.
+- [x] Riset OpenCV, MediaPipe, atau YOLO ringan.
+- [x] Center crop dan Smart crop.
+- [ ] Subject detection built-in.
+- [x] Subject detection hook.
+- [x] Crop window.
+- [x] Smoothing.
+- [x] Fallback center crop.
+- [x] Benchmark.
 
 ### 6D - Whisper
 
