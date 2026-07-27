@@ -1187,160 +1187,116 @@ function SupportCard({
     supportUrl: string;
 }) {
     const progress = Math.max(0, Math.min(100, support.progressPercent));
-    const monthlyTarget =
-        support.monthlyTarget > 0 ? support.monthlyTarget : 1;
 
     return (
-        <section className="border-y border-border bg-card/60 px-5 py-8 sm:px-8">
-            <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
-                <div className="space-y-5">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                            <p className="flex items-center gap-2 text-[14.5px] font-semibold text-foreground">
-                                <Heart className="size-4 fill-current text-destructive" />
-                                FreeKliping gratis dipakai
+        <aside className="fixed inset-x-4 bottom-4 z-30 sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-[360px] lg:right-8">
+            <div className="max-h-[72dvh] overflow-y-auto rounded-lg border border-amber-300/70 bg-card shadow-2xl shadow-black/18">
+                <div className="border-b border-amber-200/70 bg-amber-50 px-4 py-4 text-stone-950">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="flex items-center gap-2 text-sm font-semibold">
+                                <Heart className="size-4 fill-current text-amber-500" />
+                                FreeKliping gratis
                             </p>
-                            <p className="mt-1 max-w-xl text-[13.5px] leading-6 text-text-secondary">
+                            <p className="mt-1 text-xs leading-5 text-stone-700">
                                 {support.caption}
                             </p>
                         </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                            <a
-                                href={GITHUB_REPOSITORY_URL}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-border focus-visible:ring-2 focus-visible:ring-brand"
-                            >
-                                <Github className="size-4" />
-                                GitHub
-                            </a>
-                            <a
-                                href={supportUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-brand"
-                            >
-                                Dukung FreeKliping
-                            </a>
+                        <div className="shrink-0 rounded-md bg-white px-2.5 py-1 text-sm font-bold text-stone-950 shadow-xs">
+                            {progress}%
                         </div>
                     </div>
+                    <div className="mt-3">
+                        <div className="mb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-normal text-stone-700">
+                            <span>Progress sewa server bulan ini</span>
+                            <span>{progress}%</span>
+                        </div>
+                        <Progress value={progress} className="h-2 bg-white" />
+                    </div>
+                </div>
 
-                    <div className="space-y-3">
-                        <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="space-y-4 px-4 py-4">
+                    <a
+                        href={supportUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex h-10 w-full items-center justify-center rounded-md bg-[#f6c945] px-4 text-sm font-bold text-stone-950 transition-colors hover:bg-[#eabf3c] focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                        Kirim Dukungan via Saweria
+                    </a>
+
+                    <div>
+                        <div className="flex items-center justify-between gap-3">
                             <div>
-                                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-                                    Biaya server bulan ini
+                                <p className="text-sm font-semibold text-foreground">
+                                    Top dukungan bulan ini
                                 </p>
-                                <p className="mt-1 text-2xl font-semibold text-foreground">
-                                    {formatMoney(
-                                        support.totalSupported,
-                                        support.currency,
-                                    )}
-                                    <span className="text-sm font-medium text-muted-foreground">
-                                        {' '}
-                                        /{' '}
-                                        {formatMoney(
-                                            monthlyTarget,
-                                            support.currency,
-                                        )}
-                                    </span>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Dari terbanyak ke terendah.
                                 </p>
                             </div>
-                            <p className="rounded-md bg-secondary px-2.5 py-1 text-sm font-semibold text-foreground">
-                                {progress}%
-                            </p>
                         </div>
-                        <Progress value={progress} className="h-2" />
+
+                        {support.supporters.length > 0 ? (
+                            <ol className="mt-3 space-y-2">
+                                {support.supporters.map(
+                                    (supporter, index) => (
+                                        <li
+                                            key={`${supporter.name}-${index}`}
+                                            className="flex items-center justify-between gap-3 rounded-md bg-background px-3 py-2"
+                                        >
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-amber-100 font-mono text-xs font-semibold text-stone-800">
+                                                    {index + 1}
+                                                </span>
+                                                <span className="truncate text-sm font-medium text-foreground">
+                                                    {supporter.name}
+                                                </span>
+                                            </div>
+                                            <span className="shrink-0 text-sm font-semibold text-foreground">
+                                                {formatMoney(
+                                                    supporter.amount,
+                                                    support.currency,
+                                                )}
+                                            </span>
+                                        </li>
+                                    ),
+                                )}
+                            </ol>
+                        ) : (
+                            <p className="mt-3 rounded-md bg-background px-3 py-3 text-sm text-muted-foreground">
+                                Belum ada supporter bulan ini.
+                            </p>
+                        )}
                     </div>
 
-                    {support.costItems.length > 0 ? (
-                        <div className="grid gap-2 sm:grid-cols-3">
-                            {support.costItems.map((item) => (
-                                <div
-                                    key={item.label}
-                                    className="rounded-md border border-border bg-background px-3 py-3"
-                                >
-                                    <p className="text-xs text-muted-foreground">
-                                        {item.label}
-                                    </p>
-                                    <p className="mt-1 text-sm font-semibold text-foreground">
-                                        {formatMoney(
-                                            item.amount,
-                                            support.currency,
-                                        )}
-                                    </p>
-                                </div>
-                            ))}
+                    <div className="flex items-center justify-between border-t border-border pt-3 font-mono text-[11px] text-muted-foreground">
+                        <div className="flex gap-3">
+                            <Link
+                                href={privacy()}
+                                className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
+                            >
+                                Privacy
+                            </Link>
+                            <Link
+                                href={terms()}
+                                className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
+                            >
+                                Terms
+                            </Link>
                         </div>
-                    ) : null}
-                </div>
-
-                <div className="rounded-md border border-border bg-background px-4 py-4">
-                    <div className="flex items-center justify-between gap-3">
-                        <div>
-                            <p className="text-sm font-semibold text-foreground">
-                                Supporter bulan ini
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                Diurutkan dari support terbanyak.
-                            </p>
-                        </div>
+                        <a
+                            href={GITHUB_REPOSITORY_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
+                        >
+                            GitHub
+                        </a>
                     </div>
-
-                    {support.supporters.length > 0 ? (
-                        <ol className="mt-4 space-y-2">
-                            {support.supporters.map((supporter, index) => (
-                                <li
-                                    key={`${supporter.name}-${index}`}
-                                    className="flex items-center justify-between gap-3 rounded-md bg-card px-3 py-2"
-                                >
-                                    <div className="flex min-w-0 items-center gap-3">
-                                        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary font-mono text-xs font-semibold text-muted-foreground">
-                                            {index + 1}
-                                        </span>
-                                        <span className="truncate text-sm font-medium text-foreground">
-                                            {supporter.name}
-                                        </span>
-                                    </div>
-                                    <span className="shrink-0 text-sm font-semibold text-foreground">
-                                        {formatMoney(
-                                            supporter.amount,
-                                            support.currency,
-                                        )}
-                                    </span>
-                                </li>
-                            ))}
-                        </ol>
-                    ) : (
-                        <p className="mt-4 rounded-md bg-card px-3 py-3 text-sm text-muted-foreground">
-                            Belum ada supporter bulan ini.
-                        </p>
-                    )}
                 </div>
             </div>
-            <nav className="mx-auto mt-5 flex max-w-6xl justify-center gap-5 font-mono text-[11px] text-muted-foreground">
-                <Link
-                    href={privacy()}
-                    className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
-                >
-                    Privacy
-                </Link>
-                <Link
-                    href={terms()}
-                    className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
-                >
-                    Terms
-                </Link>
-                <a
-                    href={GITHUB_REPOSITORY_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
-                >
-                    GitHub
-                </a>
-            </nav>
-        </section>
+        </aside>
     );
 }
 
