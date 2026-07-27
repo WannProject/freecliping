@@ -13,24 +13,23 @@ import { EmptyState } from '@/features/clip-editor/components/empty-state';
 import { RecommendationGallery } from '@/features/clip-editor/components/recommendation-gallery';
 import { UrlInput } from '@/features/clip-editor/components/url-input';
 import { VideoPreview } from '@/features/clip-editor/components/video-preview';
-import { GITHUB_REPOSITORY_URL } from '@/lib/links';
-
 import {
     ClipReadyBanner,
     ClipResultModal,
     DownloadProgressModal,
-} from './clip-studio/clip-overlays';
-import { ClipWorkspaceTabs } from './clip-studio/clip-workspace-tabs';
-import { LocalWorkerManifestModal } from './clip-studio/local-worker-manifest-modal';
-import { SupportCard } from './clip-studio/support-card';
-import { defaultSupportTransparency } from './clip-studio/types';
-import type { SupportTransparency } from './clip-studio/types';
-import { useClipStudioFlow } from './clip-studio/use-clip-studio-flow';
+} from '@/features/clip-studio/clip-overlays';
+import { ClipWorkspaceTabs } from '@/features/clip-studio/clip-workspace-tabs';
+import { LocalWorkerManifestModal } from '@/features/clip-studio/local-worker-manifest-modal';
+// import { defaultSupportTransparency } from '@/features/clip-studio/types';
+// import { SupportCard } from '@/features/clip-studio/support-card';
+import type { SupportTransparency } from '@/features/clip-studio/types';
+import { useClipStudioFlow } from '@/features/clip-studio/use-clip-studio-flow';
+import { GITHUB_REPOSITORY_URL } from '@/lib/links';
 
 export default function ClipStudio({
     maxClipLength: pageMaxClipLength,
     supportUrl = 'https://saweria.co/freekliping',
-    supportTransparency = defaultSupportTransparency,
+    // supportTransparency = defaultSupportTransparency,
 }: {
     maxClipLength?: number;
     supportUrl?: string;
@@ -51,10 +50,10 @@ export default function ClipStudio({
                     url={flow.url}
                 />
                 <ClipStudioWorkspace flow={flow} />
-                <SupportCard
+                {/* <SupportCard
                     support={supportTransparency}
                     supportUrl={supportUrl}
-                />
+                /> */}
             </main>
         </>
     );
