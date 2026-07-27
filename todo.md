@@ -31,6 +31,7 @@ Dokumen diperbarui berdasarkan audit repository pada 20 Juli 2026. Audit menemuk
 | 9    | YouTube link ke AI clip recommendations             | Sebagian selesai | P0      |
 | 10   | Production-safe content workflow                    | Sebagian selesai | P0      |
 | 11   | Hybrid local worker                                 | Belum dimulai  | P1        |
+| 12   | Paid MVP packaging dan manual editor                | Belum dimulai  | P0        |
 
 ## Phase 0 - Product & Technical Decision
 
@@ -657,15 +658,87 @@ Exit criteria Phase 11:
 - Web dashboard tetap menjadi tempat memilih rekomendasi dan memantau progress.
 - Biaya render/transcription server turun karena proses berat pindah ke device user.
 
+## Phase 12 - Paid MVP Packaging and Manual Editor
+
+Tujuan: menyiapkan FreeKliping agar bisa menghasilkan tanpa membuat biaya server tidak terkendali. Fokus awal bukan Smart Crop, tetapi kontrol manual yang lebih predictable untuk creator.
+
+### 12A - Pricing Strategy Draft
+
+- [ ] Tetapkan Free plan: 1 clip per hari.
+- [ ] Evaluasi trial: 7 hari atau 5-10 clip total, bukan 1 bulan unlimited.
+- [ ] Tetapkan Creator Monthly: Rp97.000/bulan dengan quota credit.
+- [ ] Tetapkan Credit Pack: Rp97.000 sekali bayar sebagai credit pack, bukan lifetime access.
+- [ ] Evaluasi Pro Monthly: Rp197.000/bulan untuk quota lebih tinggi, priority queue, Smart Crop, Whisper, dan batch.
+- [ ] Definisikan credit unit, misalnya 1 credit = 1 menit source video diproses.
+- [ ] Tentukan masa berlaku credit pack, misalnya 60 hari.
+- [ ] Jangan jual unlimited cloud processing sampai biaya real production terbukti.
+- [ ] Saweria tetap untuk dukungan/donasi, bukan unlock paket paid utama.
+
+### 12B - Payment and Account Requirements
+
+- [ ] Paid user wajib login agar quota, invoice, dan history bisa dicatat.
+- [ ] Free public tetap bisa dipakai tanpa login selama masih 1 clip per hari.
+- [ ] Riset payment gateway: Midtrans, Duitku, Xendit.
+- [ ] Pilih payment method awal: QRIS dan virtual account.
+- [ ] Buat tabel subscription/entitlement/credits setelah pricing final dipilih.
+- [ ] Pastikan payment success hanya unlock quota setelah webhook tervalidasi.
+
+### 12C - Manual Reframe Editor
+
+- [ ] User bisa memilih frame 9:16, 1:1, 16:9, dan original.
+- [ ] User bisa menggeser posisi video di dalam frame.
+- [ ] User bisa zoom in/out.
+- [ ] User bisa reset ke center crop.
+- [ ] Simpan posisi crop per clip/recommendation.
+- [ ] Preview crop sebelum render.
+- [ ] Render ffmpeg memakai crop position manual.
+- [ ] Manual crop menjadi fitur utama Creator plan.
+
+### 12D - Trim Editor Polish
+
+- [ ] Potong start/end dengan kontrol lebih presisi.
+- [ ] Tambahkan fine adjust kecil, misalnya +/- 0.1 detik jika feasible.
+- [ ] Preview timestamp sebelum render.
+- [ ] Pastikan rekomendasi AI tetap bisa diedit manual sebelum generate.
+- [ ] Simpan perubahan trim user ke payload render.
+
+### 12E - Subtitle Style Editor
+
+- [ ] Pilih font.
+- [ ] Atur ukuran font.
+- [ ] Atur warna teks.
+- [ ] Atur warna highlight.
+- [ ] Atur outline/shadow.
+- [ ] Atur posisi subtitle.
+- [ ] Buat style template awal: minimal, bold, karaoke, podcast.
+- [ ] Preview style subtitle sebelum render.
+- [ ] Render ffmpeg memakai style subtitle pilihan user.
+
+### 12F - Template Packaging
+
+- [ ] Buat 3-5 template siap pakai untuk TikTok/Reels/Shorts.
+- [ ] Template menyimpan ratio, crop, subtitle style, dan export quality.
+- [ ] Free plan hanya mendapat template basic.
+- [ ] Creator plan mendapat semua template awal.
+- [ ] Pro plan bisa mendapat Smart Crop, Whisper advanced, priority queue, dan batch render.
+
+### 12G - Smart Crop Positioning
+
+- [ ] Jangan jadikan Smart Crop dependency utama launch paid MVP.
+- [ ] Pertahankan Smart Crop sebagai fitur advanced/beta.
+- [ ] Smart Crop bisa masuk Pro plan, bukan Free/Creator default.
+- [ ] Jika Smart Crop salah, user tetap bisa override lewat manual crop.
+- [ ] Marketing awal menonjolkan manual control, subtitle style, trim, dan template.
+
 ## Urutan Kerja Terdekat
 
-1. Mulai Phase 8A-8C: free public model, batas penggunaan, dan section transparansi biaya server di homepage.
-2. Buat ledger saweran manual dulu sebelum webhook otomatis.
-3. Tambahkan tombol `Dukung FreeKliping` di homepage dan success state.
-4. Perbarui Terms/Privacy untuk flow paste link, transcript, rekomendasi, output sementara, dan saweran opsional.
-5. Siapkan monitoring minimal untuk queue, failed jobs, CPU/RAM, dan disk usage.
-6. Catat keputusan legal final sebelum launch publik.
-7. Setelah public flow stabil, lanjutkan Phase 11 Local Mode untuk pemakaian berat tanpa membebani server.
+1. Owner filter Phase 12: pilih pricing, quota, dan fitur editor yang wajib untuk paid MVP.
+2. Setelah pricing final, tentukan payment gateway awal: Midtrans, Duitku, atau Xendit.
+3. Kerjakan Phase 12C-12E secara berurutan: manual reframe, trim polish, subtitle style editor.
+4. Tambahkan template packaging agar Creator plan punya value yang jelas.
+5. Perbarui Terms/Privacy untuk paid access, quota, payment, refund, transcript, dan output sementara.
+6. Setelah paid MVP siap, baru lanjut payment entitlement dan launch promo.
+7. Saweria tetap dipertahankan sebagai dukungan server, bukan sistem unlock fitur paid.
 
 ## Catatan Keputusan Saat Ini
 
@@ -679,12 +752,15 @@ Exit criteria Phase 11:
 - Metadata: yt-dlp.
 - Generate: queued yt-dlp + ffmpeg.
 - Download: signed URL.
-- Login/register: tidak digunakan.
-- Model produk: gratis/public-first, didukung saweran opsional dan transparansi biaya server.
-- Monetisasi wajib/paywall: tidak dipakai untuk MVP.
-- Donor benefit: boleh dipertimbangkan nanti, tetapi tidak boleh mengunci basic usage.
+- Login/register: tidak digunakan untuk free public; paid user kemungkinan wajib login untuk quota dan billing.
+- Model produk terbaru: free terbatas + paid quota, dengan 1 clip/hari untuk free.
+- Draft harga: Creator Rp97.000/bulan; Rp97.000 sekali bayar hanya sebagai credit pack, bukan lifetime.
+- Saweria: tetap untuk dukungan server/donasi, bukan unlock paket paid utama.
 - Crop awal: center crop.
+- Paid MVP editor awal: manual crop/reframe lebih prioritas daripada Smart Crop.
+- Smart Crop: advanced/beta, idealnya Pro plan atau optional override.
 - Subtitle awal: YouTube caption.
+- Subtitle paid MVP: style editor, font, warna, posisi, outline/shadow, dan template.
 - Rekomendasi klip: paste link YouTube -> transcript -> AI/rule scoring -> gallery rekomendasi -> render setelah user memilih.
 - Production-safe default: upload file milik user sebagai flow paling aman.
 - YouTube URL: tetap dipertahankan, tetapi perlu konfirmasi hak konten sebelum render/export public production.
