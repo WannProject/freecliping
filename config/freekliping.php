@@ -45,6 +45,10 @@ return [
 
     'analysis_retention_hours' => (int) env('FREEKLIPING_ANALYSIS_RETENTION_HOURS', 24),
 
+    'analysis_transcript_cache_disk' => env('FREEKLIPING_ANALYSIS_TRANSCRIPT_CACHE_DISK', 'local'),
+
+    'analysis_transcript_cache_path' => env('FREEKLIPING_ANALYSIS_TRANSCRIPT_CACHE_PATH', 'clip-analysis/transcripts/youtube'),
+
     'prune_after_hours' => (int) env('FREEKLIPING_PRUNE_AFTER_HOURS', 24),
 
     'yt_dlp_binary' => env('FREEKLIPING_YT_DLP_BINARY', 'yt-dlp'),

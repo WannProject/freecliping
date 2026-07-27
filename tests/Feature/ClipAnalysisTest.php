@@ -134,6 +134,7 @@ test('analysis endpoint reuses a recent completed analysis for the same video', 
 });
 
 test('analysis job turns a json3 transcript into ranked recommendations', function () {
+    Storage::fake('local');
     Process::preventStrayProcesses();
     Process::fake([
         '*' => Process::result(),
@@ -169,6 +170,7 @@ test('analysis job turns a json3 transcript into ranked recommendations', functi
         ->and($analysis->recommendations[0]['hook'])->toContain('korupsi');
 
     expect(File::exists($workDirectory))->toBeFalse();
+    expect(Storage::disk('local')->exists('clip-analysis/transcripts/youtube/dQw4w9WgXcQ-id.json3'))->toBeTrue();
 
     Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
         'yt-dlp',
@@ -186,6 +188,40 @@ test('analysis job turns a json3 transcript into ranked recommendations', functi
         "{$workDirectory}/transcript",
         'https://youtu.be/dQw4w9WgXcQ',
     ]);
+});
+
+test('analysis job reuses cached youtube transcript without running yt-dlp', function () {
+    Storage::fake('local');
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    $analysis = ClipAnalysis::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 120,
+        'status' => ClipAnalysisStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    Storage::disk('local')->put('clip-analysis/transcripts/youtube/dQw4w9WgXcQ-id.json3', analysisJson3Transcript());
+
+    (new ProcessClipAnalysis($analysis->id))->handle(
+        app(YouTubeTranscriptClient::class),
+        app(WhisperTranscriber::class),
+        app(ClipMomentRecommender::class),
+    );
+
+    $analysis->refresh();
+
+    expect($analysis->status)->toBe(ClipAnalysisStatus::Completed)
+        ->and($analysis->transcript_language)->toBe('id')
+        ->and($analysis->recommendations)->toHaveCount(3);
+
+    Process::assertNothingRan();
 });
 
 test('analysis job falls back to cached whisper transcript when youtube transcript is unavailable', function () {

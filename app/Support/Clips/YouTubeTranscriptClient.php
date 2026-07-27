@@ -5,6 +5,7 @@ namespace App\Support\Clips;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 final class YouTubeTranscriptClient
@@ -12,12 +13,19 @@ final class YouTubeTranscriptClient
     /**
      * @return array{content: string, language: string}
      */
-    public function fetchJson3(string $url, string $workDirectory): array
+    public function fetchJson3(string $url, string $workDirectory, ?string $videoId = null): array
     {
+        $languages = $this->languages();
+
+        $cachedTranscript = $this->cachedTranscript($videoId, $languages);
+
+        if ($cachedTranscript !== null) {
+            return $cachedTranscript;
+        }
+
         File::ensureDirectoryExists($workDirectory);
 
         $outputTemplate = "{$workDirectory}/transcript";
-        $languages = $this->languages();
 
         // A single yt-dlp call requests manual AND auto subs for every
         // preferred language at once. This replaces up to 8 sequential
@@ -29,9 +37,13 @@ final class YouTubeTranscriptClient
         $source = $this->locateTranscript($workDirectory, $languages);
 
         if ($source !== null) {
+            $language = $this->languageFromPath($source) ?? $languages[0];
+            $content = File::get($source);
+            $this->storeCachedTranscript($videoId, $language, $content);
+
             return [
-                'content' => File::get($source),
-                'language' => $this->languageFromPath($source) ?? $languages[0],
+                'content' => $content,
+                'language' => $language,
             ];
         }
 
@@ -44,7 +56,7 @@ final class YouTubeTranscriptClient
     private function download(string $url, string $outputTemplate, array $languages): void
     {
         try {
-            Process::timeout($this->timeout())->run(array_filter([
+            $result = Process::timeout($this->timeout())->run(array_values(array_filter([
                 $this->ytDlpBinary(),
                 $this->jsRuntimeArgument(),
                 '--write-subs',
@@ -59,10 +71,55 @@ final class YouTubeTranscriptClient
                 '-o',
                 $outputTemplate,
                 $url,
-            ]));
+            ])));
         } catch (ProcessTimedOutException $exception) {
             throw new RuntimeException('yt-dlp terlalu lama mengambil transcript.', previous: $exception);
         }
+
+        if ($result->failed()) {
+            throw new RuntimeException('yt-dlp gagal mengambil transcript: '.trim($result->errorOutput()));
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $languages
+     * @return array{content: string, language: string}|null
+     */
+    private function cachedTranscript(?string $videoId, array $languages): ?array
+    {
+        if ($videoId === null || $videoId === '') {
+            return null;
+        }
+
+        $disk = $this->cacheDisk();
+
+        foreach ($languages as $language) {
+            $path = $this->cachePath($videoId, $language);
+
+            if (! Storage::disk($disk)->exists($path)) {
+                continue;
+            }
+
+            $content = Storage::disk($disk)->get($path);
+
+            if (is_string($content) && $content !== '') {
+                return [
+                    'content' => $content,
+                    'language' => $language,
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    private function storeCachedTranscript(?string $videoId, string $language, string $content): void
+    {
+        if ($videoId === null || $videoId === '' || $content === '') {
+            return;
+        }
+
+        Storage::disk($this->cacheDisk())->put($this->cachePath($videoId, $language), $content);
     }
 
     /**
@@ -149,5 +206,26 @@ final class YouTubeTranscriptClient
         $timeout = config('freekliping.metadata_timeout');
 
         return is_numeric($timeout) ? (int) $timeout : 20;
+    }
+
+    private function cacheDisk(): string
+    {
+        $disk = config('freekliping.analysis_transcript_cache_disk');
+
+        return is_string($disk) && $disk !== '' ? $disk : 'local';
+    }
+
+    private function cacheBasePath(): string
+    {
+        $path = config('freekliping.analysis_transcript_cache_path');
+
+        return is_string($path) && $path !== '' ? $path : 'clip-analysis/transcripts/youtube';
+    }
+
+    private function cachePath(string $videoId, string $language): string
+    {
+        $safeVideoId = preg_replace('/[^A-Za-z0-9_-]/', '', $videoId) ?: $videoId;
+
+        return sprintf('%s/%s-%s.json3', trim($this->cacheBasePath(), '/'), $safeVideoId, $language);
     }
 }

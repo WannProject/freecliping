@@ -69,6 +69,8 @@ export function RecommendationGallery({
     recommendations: ClipRecommendation[];
     video: VideoMeta;
 }) {
+    const loadingCopy = analysisLoadingCopy(progress);
+
     if (loading) {
         return (
             <Card className="gap-0 rounded-lg border-border bg-surface-2">
@@ -79,11 +81,10 @@ export function RecommendationGallery({
                         </div>
                         <div>
                             <p className="text-[15px] font-semibold text-foreground">
-                                Finding recommended clips
+                                {loadingCopy.title}
                             </p>
                             <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-                                Reading transcript, scoring hooks, and checking
-                                context.
+                                {loadingCopy.description}
                             </p>
                         </div>
                     </div>
@@ -140,6 +141,31 @@ export function RecommendationGallery({
             </div>
         </section>
     );
+}
+
+function analysisLoadingCopy(progress: number): {
+    title: string;
+    description: string;
+} {
+    if (progress < 30) {
+        return {
+            title: 'Preparing analysis',
+            description: 'Starting the worker and reading video metadata.',
+        };
+    }
+
+    if (progress < 65) {
+        return {
+            title: 'Reading transcript',
+            description:
+                'Fetching captions, or transcribing audio when captions are unavailable.',
+        };
+    }
+
+    return {
+        title: 'Finding recommended clips',
+        description: 'Scoring hooks, pacing, and context.',
+    };
 }
 
 function RecommendationCard({

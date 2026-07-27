@@ -43,15 +43,29 @@ class ProcessClipAnalysis implements ShouldQueue
             'error_message' => null,
         ]);
 
+        $startedAt = microtime(true);
+
         Log::info('clip analysis started', ['analysis' => $analysis->uuid]);
 
         try {
+            $transcriptSource = 'youtube';
+            $transcriptStartedAt = microtime(true);
+
             try {
-                $transcript = $transcriptClient->fetchJson3($analysis->source_url, $workDirectory);
+                $analysis->update(['progress' => 30]);
+
+                $transcript = $transcriptClient->fetchJson3(
+                    url: $analysis->source_url,
+                    workDirectory: $workDirectory,
+                    videoId: $analysis->youtube_video_id,
+                );
             } catch (RuntimeException $exception) {
                 if (! $whisperTranscriber->enabled()) {
                     throw $exception;
                 }
+
+                $transcriptSource = 'whisper';
+                $analysis->update(['progress' => 35]);
 
                 Log::info('falling back to whisper transcript', [
                     'analysis' => $analysis->uuid,
@@ -61,12 +75,29 @@ class ProcessClipAnalysis implements ShouldQueue
                 $transcript = $whisperTranscriber->transcribe($analysis, $workDirectory);
             }
 
-            $analysis->update(['progress' => 55]);
+            $analysis->update(['progress' => 65]);
+
+            Log::info('clip analysis transcript ready', [
+                'analysis' => $analysis->uuid,
+                'source' => $transcriptSource,
+                'language' => $transcript['language'],
+                'bytes' => strlen($transcript['content']),
+                'elapsed_ms' => $this->elapsedMilliseconds($transcriptStartedAt),
+            ]);
+
+            $recommendationsStartedAt = microtime(true);
+            $analysis->update(['progress' => 75]);
 
             $recommendations = $recommender->recommendFromJson3(
                 content: $transcript['content'],
                 durationSeconds: $analysis->duration_seconds,
             );
+
+            Log::info('clip analysis recommendations scored', [
+                'analysis' => $analysis->uuid,
+                'recommendations' => count($recommendations),
+                'elapsed_ms' => $this->elapsedMilliseconds($recommendationsStartedAt),
+            ]);
 
             if ($recommendations === []) {
                 throw new RuntimeException('Transcript ditemukan, tetapi tidak ada kandidat klip yang cukup kuat.');
@@ -83,10 +114,16 @@ class ProcessClipAnalysis implements ShouldQueue
             Log::info('clip analysis completed', [
                 'analysis' => $analysis->uuid,
                 'recommendations' => count($recommendations),
+                'elapsed_ms' => $this->elapsedMilliseconds($startedAt),
             ]);
         } finally {
             File::deleteDirectory($workDirectory);
         }
+    }
+
+    private function elapsedMilliseconds(float $startedAt): int
+    {
+        return (int) round((microtime(true) - $startedAt) * 1000);
     }
 
     public function failed(?Throwable $exception): void
