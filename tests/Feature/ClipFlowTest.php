@@ -29,7 +29,8 @@ test('home page exposes configured clip limits', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('welcome')
             ->where('maxClipLength', 180)
-            ->where('supportUrl', 'https://saweria.co/freekliping'));
+            ->where('supportUrl', 'https://saweria.co/freekliping')
+            ->has('supportTransparency'));
 });
 
 test('metadata endpoint rejects invalid youtube urls before external calls', function () {

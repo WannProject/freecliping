@@ -45,6 +45,7 @@ test('analysis endpoint rejects videos without transcript tracks', function () {
     Process::fake([
         '*' => Process::result(analysisMetadataOutput(automaticCaptions: [])),
     ]);
+    config(['freekliping.whisper.enabled' => false]);
 
     $this->postJson(route('clip-analyses.store'), [
         'url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',

@@ -55,12 +55,40 @@ import { privacy, terms } from '@/routes';
 
 type ClipWorkspaceTab = 'recommended' | 'manual';
 
+type SupportTransparency = {
+    caption: string;
+    currency: string;
+    monthlyTarget: number;
+    totalSupported: number;
+    progressPercent: number;
+    costItems: {
+        label: string;
+        amount: number;
+    }[];
+    supporters: {
+        name: string;
+        amount: number;
+    }[];
+};
+
+const defaultSupportTransparency: SupportTransparency = {
+    caption: 'Bantu bayar sewa server agar FreeKliping tetap aktif.',
+    currency: 'IDR',
+    monthlyTarget: 500000,
+    totalSupported: 0,
+    progressPercent: 0,
+    costItems: [],
+    supporters: [],
+};
+
 export default function Welcome({
     maxClipLength: pageMaxClipLength,
     supportUrl = 'https://saweria.co/freekliping',
+    supportTransparency = defaultSupportTransparency,
 }: {
     maxClipLength?: number;
     supportUrl?: string;
+    supportTransparency?: SupportTransparency;
 }) {
     const maxClipLength =
         typeof pageMaxClipLength === 'number'
@@ -777,7 +805,10 @@ export default function Welcome({
                     </div>
                 </section>
 
-                <SupportCard supportUrl={supportUrl} />
+                <SupportCard
+                    support={supportTransparency}
+                    supportUrl={supportUrl}
+                />
             </main>
         </>
     );
@@ -1148,38 +1179,143 @@ function ClipWorkspaceTabs({
     );
 }
 
-function SupportCard({ supportUrl }: { supportUrl: string }) {
+function SupportCard({
+    support,
+    supportUrl,
+}: {
+    support: SupportTransparency;
+    supportUrl: string;
+}) {
+    const progress = Math.max(0, Math.min(100, support.progressPercent));
+    const monthlyTarget =
+        support.monthlyTarget > 0 ? support.monthlyTarget : 1;
+
     return (
-        <section className="px-5 py-6 sm:px-8">
-            <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 rounded-lg border border-border bg-card px-6 py-6 text-center sm:flex-row sm:text-left">
-                <div>
-                    <p className="flex items-center justify-center gap-2 text-[14.5px] font-medium text-foreground sm:justify-start">
-                        <Heart className="size-4 fill-current text-destructive" />
-                        FreeKliping stays free and ad-free
-                    </p>
-                    <p className="mt-1 text-[13.5px] text-text-secondary">
-                        No plans, no accounts to maintain. A small tip keeps it
-                        running.
-                    </p>
+        <section className="border-y border-border bg-card/60 px-5 py-8 sm:px-8">
+            <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
+                <div className="space-y-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <p className="flex items-center gap-2 text-[14.5px] font-semibold text-foreground">
+                                <Heart className="size-4 fill-current text-destructive" />
+                                FreeKliping gratis dipakai
+                            </p>
+                            <p className="mt-1 max-w-xl text-[13.5px] leading-6 text-text-secondary">
+                                {support.caption}
+                            </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                            <a
+                                href={GITHUB_REPOSITORY_URL}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-border focus-visible:ring-2 focus-visible:ring-brand"
+                            >
+                                <Github className="size-4" />
+                                GitHub
+                            </a>
+                            <a
+                                href={supportUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-brand"
+                            >
+                                Dukung FreeKliping
+                            </a>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex flex-wrap items-end justify-between gap-3">
+                            <div>
+                                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+                                    Biaya server bulan ini
+                                </p>
+                                <p className="mt-1 text-2xl font-semibold text-foreground">
+                                    {formatMoney(
+                                        support.totalSupported,
+                                        support.currency,
+                                    )}
+                                    <span className="text-sm font-medium text-muted-foreground">
+                                        {' '}
+                                        /{' '}
+                                        {formatMoney(
+                                            monthlyTarget,
+                                            support.currency,
+                                        )}
+                                    </span>
+                                </p>
+                            </div>
+                            <p className="rounded-md bg-secondary px-2.5 py-1 text-sm font-semibold text-foreground">
+                                {progress}%
+                            </p>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                    </div>
+
+                    {support.costItems.length > 0 ? (
+                        <div className="grid gap-2 sm:grid-cols-3">
+                            {support.costItems.map((item) => (
+                                <div
+                                    key={item.label}
+                                    className="rounded-md border border-border bg-background px-3 py-3"
+                                >
+                                    <p className="text-xs text-muted-foreground">
+                                        {item.label}
+                                    </p>
+                                    <p className="mt-1 text-sm font-semibold text-foreground">
+                                        {formatMoney(
+                                            item.amount,
+                                            support.currency,
+                                        )}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
                 </div>
-                <div className="flex items-center gap-2">
-                    <a
-                        href={GITHUB_REPOSITORY_URL}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-border"
-                    >
-                        <Github className="size-4" />
-                        GitHub
-                    </a>
-                    <a
-                        href={supportUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-border"
-                    >
-                        Support on Saweria
-                    </a>
+
+                <div className="rounded-md border border-border bg-background px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-sm font-semibold text-foreground">
+                                Supporter bulan ini
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Diurutkan dari support terbanyak.
+                            </p>
+                        </div>
+                    </div>
+
+                    {support.supporters.length > 0 ? (
+                        <ol className="mt-4 space-y-2">
+                            {support.supporters.map((supporter, index) => (
+                                <li
+                                    key={`${supporter.name}-${index}`}
+                                    className="flex items-center justify-between gap-3 rounded-md bg-card px-3 py-2"
+                                >
+                                    <div className="flex min-w-0 items-center gap-3">
+                                        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary font-mono text-xs font-semibold text-muted-foreground">
+                                            {index + 1}
+                                        </span>
+                                        <span className="truncate text-sm font-medium text-foreground">
+                                            {supporter.name}
+                                        </span>
+                                    </div>
+                                    <span className="shrink-0 text-sm font-semibold text-foreground">
+                                        {formatMoney(
+                                            supporter.amount,
+                                            support.currency,
+                                        )}
+                                    </span>
+                                </li>
+                            ))}
+                        </ol>
+                    ) : (
+                        <p className="mt-4 rounded-md bg-card px-3 py-3 text-sm text-muted-foreground">
+                            Belum ada supporter bulan ini.
+                        </p>
+                    )}
                 </div>
             </div>
             <nav className="mx-auto mt-5 flex max-w-6xl justify-center gap-5 font-mono text-[11px] text-muted-foreground">
@@ -1206,4 +1342,16 @@ function SupportCard({ supportUrl }: { supportUrl: string }) {
             </nav>
         </section>
     );
+}
+
+function formatMoney(amount: number, currency: string) {
+    try {
+        return new Intl.NumberFormat('id-ID', {
+            currency,
+            maximumFractionDigits: 0,
+            style: 'currency',
+        }).format(amount);
+    } catch {
+        return `Rp${Math.round(amount).toLocaleString('id-ID')}`;
+    }
 }

@@ -27,7 +27,7 @@ Dokumen diperbarui berdasarkan audit repository pada 20 Juli 2026. Audit menemuk
 | 5    | Hardening anti-abuse dan cleanup output             | Selesai        | P1        |
 | 6    | Export polish, subtitle, dan smart crop             | Belum dimulai  | P1/P2     |
 | 7    | Storage dan cost optimization                       | Belum dimulai  | P2        |
-| 8    | Free public launch dan support transparency         | Belum dimulai  | P1        |
+| 8    | Free public launch dan support transparency         | Sebagian selesai | P1      |
 | 9    | YouTube link ke AI clip recommendations             | Sebagian selesai | P0      |
 | 10   | Production-safe content workflow                    | Sebagian selesai | P0      |
 | 11   | Hybrid local worker                                 | Belum dimulai  | P1        |
@@ -464,11 +464,11 @@ Tujuan: menjaga FreeKliping tetap gratis untuk user publik, tetapi tetap transpa
 
 ### 8A - Free Public Model
 
-- [ ] Tetapkan FreeKliping sebagai produk gratis untuk MVP publik.
-- [ ] Pertahankan tanpa login untuk flow utama: paste link/file -> analyze -> generate.
-- [ ] Jangan pakai paywall wajib untuk basic usage.
+- [x] Tetapkan FreeKliping sebagai produk gratis untuk MVP publik.
+- [x] Pertahankan tanpa login untuk flow utama: paste link/file -> analyze -> generate.
+- [x] Jangan pakai paywall wajib untuk basic usage.
 - [ ] Tampilkan pesan bahwa queue bisa lambat saat server ramai.
-- [ ] Siapkan copy produk: gratis, tanpa watermark, didukung saweran opsional.
+- [x] Siapkan copy produk: gratis, tanpa watermark, didukung saweran opsional.
 - [ ] Jangan menjanjikan unlimited cloud processing.
 
 ### 8B - Usage Limits for Free Public Access
@@ -484,25 +484,26 @@ Tujuan: menjaga FreeKliping tetap gratis untuk user publik, tetapi tetap transpa
 
 ### 8C - Server Cost Transparency
 
-- [ ] Buat section homepage `Biaya server bulan ini`.
-- [ ] Tampilkan target biaya bulanan.
-- [ ] Tampilkan total saweran bulan berjalan.
-- [ ] Tampilkan progress terhadap target.
-- [ ] Pisahkan komponen biaya: server, storage, bandwidth, worker/video processing.
-- [ ] Buat config agar angka target biaya bisa diubah tanpa edit komponen UI.
-- [ ] Tampilkan catatan bahwa saweran dipakai untuk menjaga FreeKliping tetap aktif.
+- [x] Buat section homepage `Biaya server bulan ini`.
+- [x] Tampilkan target biaya bulanan.
+- [x] Tampilkan total saweran bulan berjalan.
+- [x] Tampilkan progress terhadap target.
+- [x] Pisahkan komponen biaya: server, storage, bandwidth, worker/video processing.
+- [x] Buat config agar angka target biaya bisa diubah tanpa edit komponen UI.
+- [x] Tampilkan catatan bahwa saweran dipakai untuk menjaga FreeKliping tetap aktif.
 
 ### 8D - Sawer and Supporter Ledger
 
-- [ ] Tambahkan tombol `Dukung FreeKliping` di homepage.
+- [x] Tambahkan tombol `Dukung FreeKliping` di homepage.
 - [ ] Tambahkan tombol sawer setelah clip berhasil digenerate.
-- [ ] Simpan link support di config, misalnya Saweria/Trakteer/Ko-fi.
-- [ ] Buat tabel `donations` atau `supporters`.
-- [ ] Simpan nama supporter, nominal, pesan singkat, platform, dan waktu.
-- [ ] Jangan simpan atau tampilkan email, nomor HP, payment id lengkap, atau data pribadi lain.
+- [x] Simpan link support di config, misalnya Saweria/Trakteer/Ko-fi.
+- [x] Buat tabel `donations` atau `supporters`.
+- [x] Simpan nama supporter, nominal, pesan singkat, platform, dan waktu.
+- [x] Jangan simpan atau tampilkan email, nomor HP, payment id lengkap, atau data pribadi lain.
 - [ ] Buat command admin untuk input saweran manual sebagai MVP.
 - [ ] Tampilkan recent supporters di homepage.
-- [ ] Tampilkan nama sebagai `Anonim` jika donor tidak ingin ditampilkan.
+- [x] Tampilkan supporter bulan berjalan di homepage dari nominal terbesar ke terendah.
+- [x] Tampilkan nama sebagai `Anonim` jika donor tidak ingin ditampilkan.
 
 ### 8E - Donation Webhook Automation
 

@@ -97,4 +97,24 @@ return [
 
     'support_url' => env('FREEKLIPING_SUPPORT_URL', 'https://saweria.co/freekliping'),
 
+    'support' => [
+        'caption' => env('FREEKLIPING_SUPPORT_CAPTION', 'Bantu bayar sewa server agar FreeKliping tetap aktif.'),
+        'currency' => env('FREEKLIPING_SUPPORT_CURRENCY', 'IDR'),
+        'monthly_target' => (int) env('FREEKLIPING_SUPPORT_MONTHLY_TARGET', 500000),
+        'costs' => [
+            [
+                'label' => 'Sewa server',
+                'amount' => (int) env('FREEKLIPING_SUPPORT_SERVER_COST', 350000),
+            ],
+            [
+                'label' => 'Storage & bandwidth',
+                'amount' => (int) env('FREEKLIPING_SUPPORT_STORAGE_COST', 100000),
+            ],
+            [
+                'label' => 'Worker video',
+                'amount' => (int) env('FREEKLIPING_SUPPORT_WORKER_COST', 50000),
+            ],
+        ],
+    ],
+
 ];
