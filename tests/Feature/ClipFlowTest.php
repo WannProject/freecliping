@@ -27,7 +27,7 @@ test('home page exposes configured clip limits', function () {
     $this->get(route('home'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('welcome')
+            ->component('clip-studio')
             ->where('maxClipLength', 180)
             ->where('supportUrl', 'https://saweria.co/freekliping')
             ->has('supportTransparency'));

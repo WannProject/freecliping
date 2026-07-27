@@ -48,7 +48,7 @@ test('home page exposes server costs and supporter leaderboard', function () {
     $this->get(route('home'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('welcome')
+            ->component('clip-studio')
             ->where('supportUrl', 'https://saweria.co/freekliping')
             ->where('supportTransparency.caption', 'Bantu bayar sewa server.')
             ->where('supportTransparency.currency', 'IDR')

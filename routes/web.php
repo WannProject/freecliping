@@ -7,7 +7,7 @@ use App\Support\SupportTransparency;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', fn (SupportTransparency $supportTransparency) => Inertia::render('welcome', [
+Route::get('/', fn (SupportTransparency $supportTransparency) => Inertia::render('clip-studio', [
     'maxClipLength' => config('freekliping.max_clip_length'),
     'supportUrl' => config('freekliping.support_url'),
     'supportTransparency' => $supportTransparency->forHomepage(),

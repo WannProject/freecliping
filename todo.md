@@ -73,12 +73,12 @@ Tujuan: membuktikan UX utama sebelum investasi backend video.
 
 ### 1.1 Refactor struktur frontend
 
-- [x] Pecah `resources/js/pages/welcome.tsx` menjadi komponen yang lebih kecil.
+- [x] Pecah `resources/js/pages/clip-studio.tsx` menjadi komponen yang lebih kecil.
 - [x] Buat folder `resources/js/features/clip-editor/`.
 - [x] Pindahkan type clip editor ke `clip-editor.types.ts`.
 - [x] Pindahkan helper timecode dan range ke `clip-editor.utils.ts`.
 - [x] Pindahkan daftar ratio, quality, dan preset ke `clip-editor.constants.ts`.
-- [x] Pertahankan `welcome.tsx` hanya untuk state utama, request metadata, generate, polling, dan komposisi halaman.
+- [x] Pertahankan `clip-studio.tsx` hanya untuk komposisi halaman.
 
 Struktur target:
 
@@ -270,7 +270,7 @@ Tujuan: menghapus subsystem Laravel React starter-kit yang tidak digunakan FreeK
 - [x] Hapus shared prop `auth`, `sidebarOpen`, `currentTeam`, dan `teams`.
 - [x] Pertahankan shared prop `name` jika masih digunakan.
 
-### 1A.3 Bersihkan `welcome.tsx`
+### 1A.3 Bersihkan `clip-studio.tsx`
 
 - [x] Hapus pembacaan `auth` dan `currentTeam`.
 - [x] Hapus perhitungan `dashboardUrl`.
