@@ -20,8 +20,8 @@ import {
 } from '@/features/clip-studio/clip-overlays';
 import { ClipWorkspaceTabs } from '@/features/clip-studio/clip-workspace-tabs';
 import { LocalWorkerManifestModal } from '@/features/clip-studio/local-worker-manifest-modal';
-// import { defaultSupportTransparency } from '@/features/clip-studio/types';
-// import { SupportCard } from '@/features/clip-studio/support-card';
+import { SupportCard } from '@/features/clip-studio/support-card';
+import { defaultSupportTransparency } from '@/features/clip-studio/types';
 import type { SupportTransparency } from '@/features/clip-studio/types';
 import { useClipStudioFlow } from '@/features/clip-studio/use-clip-studio-flow';
 import { GITHUB_REPOSITORY_URL } from '@/lib/links';
@@ -29,7 +29,7 @@ import { GITHUB_REPOSITORY_URL } from '@/lib/links';
 export default function ClipStudio({
     maxClipLength: pageMaxClipLength,
     supportUrl = 'https://saweria.co/freekliping',
-    // supportTransparency = defaultSupportTransparency,
+    supportTransparency = defaultSupportTransparency,
 }: {
     maxClipLength?: number;
     supportUrl?: string;
@@ -50,10 +50,10 @@ export default function ClipStudio({
                     url={flow.url}
                 />
                 <ClipStudioWorkspace flow={flow} />
-                {/* <SupportCard
+                <SupportCard
                     support={supportTransparency}
                     supportUrl={supportUrl}
-                /> */}
+                />
             </main>
         </>
     );
