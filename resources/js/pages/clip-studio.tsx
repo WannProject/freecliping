@@ -1,5 +1,13 @@
 import { Head, Link } from '@inertiajs/react';
-import { Github, Heart } from 'lucide-react';
+import {
+    Facebook,
+    Github,
+    Heart,
+    Instagram,
+    Music2,
+    Youtube,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import { BrandLogo } from '@/components/brand-logo';
 import type {
@@ -25,6 +33,7 @@ import { LocalWorkerManifestModal } from '@/features/clip-studio/local-worker-ma
 import type { SupportTransparency } from '@/features/clip-studio/types';
 import { useClipStudioFlow } from '@/features/clip-studio/use-clip-studio-flow';
 import { GITHUB_REPOSITORY_URL } from '@/lib/links';
+import { home, privacy, terms } from '@/routes';
 
 export default function ClipStudio({
     maxClipLength: pageMaxClipLength,
@@ -50,12 +59,111 @@ export default function ClipStudio({
                     url={flow.url}
                 />
                 <ClipStudioWorkspace flow={flow} />
+                <ClipStudioFooter supportUrl={supportUrl} />
                 {/* <SupportCard
                     support={supportTransparency}
                     supportUrl={supportUrl}
                 /> */}
             </main>
         </>
+    );
+}
+
+function ClipStudioFooter({ supportUrl }: { supportUrl: string }) {
+    const socialLinks: Array<{
+        href: string;
+        icon: LucideIcon;
+        label: string;
+    }> = [
+        {
+            href: 'https://www.youtube.com/@freekliping',
+            icon: Youtube,
+            label: 'YouTube',
+        },
+        {
+            href: 'https://www.tiktok.com/@inopodcastclip',
+            icon: Music2,
+            label: 'TikTok',
+        },
+        {
+            href: 'https://www.instagram.com/inopodcastclip/',
+            icon: Instagram,
+            label: 'Instagram',
+        },
+        {
+            href: 'https://web.facebook.com/profile.php?id=61591772445955',
+            icon: Facebook,
+            label: 'Facebook',
+        },
+    ];
+
+    return (
+        <footer className="px-5 pb-10 sm:px-8">
+            <div className="mx-auto max-w-6xl rounded-lg border border-border/80 bg-card/82 px-4 py-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:px-5 sm:pt-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <Link
+                        href={home()}
+                        className="flex min-w-0 items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                        aria-label="FreeKliping home"
+                    >
+                        <BrandLogo className="[&>img]:size-9 [&>span]:text-[20px]" />
+                    </Link>
+
+                    <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                        <nav
+                            aria-label="Social media"
+                            className="flex items-center gap-2"
+                        >
+                            {socialLinks.map((link) => {
+                                const Icon = link.icon;
+
+                                return (
+                                    <a
+                                        key={link.href}
+                                        href={link.href}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        aria-label={link.label}
+                                        title={link.label}
+                                        className="inline-flex size-9 items-center justify-center rounded-md border border-border/80 bg-background/80 text-muted-foreground transition-colors hover:border-brand/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
+                                    >
+                                        <Icon className="size-4" />
+                                    </a>
+                                );
+                            })}
+                        </nav>
+
+                        <a
+                            href={supportUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:bg-border focus-visible:ring-2 focus-visible:ring-brand"
+                        >
+                            <Heart className="size-3.5 fill-current text-destructive" />
+                            Support
+                        </a>
+                    </div>
+                </div>
+
+                <nav
+                    aria-label="Legal"
+                    className="mt-4 flex items-center justify-center gap-4 border-t border-border/70 pt-3 text-[12.5px] font-medium text-muted-foreground"
+                >
+                    <Link
+                        href={privacy()}
+                        className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                        Privacy
+                    </Link>
+                    <Link
+                        href={terms()}
+                        className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                        Terms
+                    </Link>
+                </nav>
+            </div>
+        </footer>
     );
 }
 
