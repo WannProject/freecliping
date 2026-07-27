@@ -182,8 +182,7 @@ function SubtitleColorSelector({
                                 className={cn(
                                     'mr-2 size-3 rounded-full border border-black/20',
                                     option.value === 'white' && 'bg-white',
-                                    option.value === 'yellow' &&
-                                        'bg-[#FFE15A]',
+                                    option.value === 'yellow' && 'bg-[#FFE15A]',
                                     option.value === 'cyan' && 'bg-[#5AE1FF]',
                                 )}
                             />
