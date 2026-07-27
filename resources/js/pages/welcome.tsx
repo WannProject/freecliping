@@ -116,6 +116,10 @@ export default function Welcome({
         quality: '720p',
         subtitlesEnabled: false,
         subtitleStyle: 'word-highlight',
+        subtitleFontFamily: 'dejavu-sans',
+        subtitleFontSize: 'medium',
+        subtitlePosition: 'bottom',
+        subtitleColor: 'white',
     });
     const [progress, setProgress] = useState(0);
     const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -500,6 +504,10 @@ export default function Welcome({
                     quality: optionsToUse.quality,
                     subtitles_enabled: optionsToUse.subtitlesEnabled,
                     subtitle_style: optionsToUse.subtitleStyle,
+                    subtitle_font_family: optionsToUse.subtitleFontFamily,
+                    subtitle_font_size: optionsToUse.subtitleFontSize,
+                    subtitle_position: optionsToUse.subtitlePosition,
+                    subtitle_color: optionsToUse.subtitleColor,
                     sync_output: false,
                 }),
                 headers: jsonHeaders(),
@@ -579,6 +587,10 @@ export default function Welcome({
                     rights_confirmed: true,
                     subtitles_enabled: optionsToUse.subtitlesEnabled,
                     subtitle_style: optionsToUse.subtitleStyle,
+                    subtitle_font_family: optionsToUse.subtitleFontFamily,
+                    subtitle_font_size: optionsToUse.subtitleFontSize,
+                    subtitle_position: optionsToUse.subtitlePosition,
+                    subtitle_color: optionsToUse.subtitleColor,
                 }),
                 headers: jsonHeaders(),
                 method: route.method.toUpperCase(),
@@ -643,6 +655,7 @@ export default function Welcome({
                     quality: clip.quality,
                     sizeMb: clip.sizeMb,
                     subtitleStatus: clip.subtitleStatus,
+                    previewUrl: clip.previewUrl,
                     uuid: clip.uuid,
                 });
                 setResultModalOpen(true);
@@ -706,6 +719,7 @@ export default function Welcome({
             quality: clip.quality,
             sizeMb: clip.sizeMb,
             subtitleStatus: clip.subtitleStatus ?? result.subtitleStatus,
+            previewUrl: clip.previewUrl ?? result.previewUrl,
             uuid: clip.uuid,
         });
         setResultModalOpen(true);

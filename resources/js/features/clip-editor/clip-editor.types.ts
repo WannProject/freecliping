@@ -10,6 +10,10 @@ export type ClipAspectRatio = 'original' | '16:9' | '9:16' | '1:1';
 export type ClipQuality = 'source' | '480p' | '720p' | '1080p';
 export type CaptionKind = 'none' | 'manual' | 'auto';
 export type SubtitleStyle = 'word-highlight' | 'classic' | 'neon-box';
+export type SubtitleFontFamily = 'dejavu-sans' | 'arial' | 'impact';
+export type SubtitleFontSize = 'small' | 'medium' | 'large';
+export type SubtitlePosition = 'bottom' | 'center' | 'top';
+export type SubtitleColor = 'white' | 'yellow' | 'cyan';
 
 export interface CaptionAvailability {
     available: boolean;
@@ -22,6 +26,10 @@ export interface ExportOptions {
     quality: ClipQuality;
     subtitlesEnabled: boolean;
     subtitleStyle: SubtitleStyle;
+    subtitleFontFamily: SubtitleFontFamily;
+    subtitleFontSize: SubtitleFontSize;
+    subtitlePosition: SubtitlePosition;
+    subtitleColor: SubtitleColor;
 }
 
 export interface VideoMeta {
@@ -40,6 +48,7 @@ export interface ClipResult {
     duration: number;
     fileName: string;
     quality: ClipQuality;
+    previewUrl: string | null;
     sizeMb: number | null;
     subtitleStatus: SubtitleStatusValue;
     uuid: string;
@@ -76,9 +85,14 @@ export interface ClipPayload {
     fileName: string;
     progress: number;
     quality: ClipQuality;
+    previewUrl: string | null;
     sizeMb: number | null;
     status: 'queued' | 'processing' | 'completed' | 'failed';
     statusUrl: string;
+    subtitleColor: SubtitleColor;
+    subtitleFontFamily: SubtitleFontFamily;
+    subtitleFontSize: SubtitleFontSize;
+    subtitlePosition: SubtitlePosition;
     subtitleStatus: SubtitleStatusValue;
     subtitleStyle: SubtitleStyle;
     uuid: string;
@@ -161,6 +175,10 @@ export interface LocalWorkerManifest {
         aspectRatio?: ClipAspectRatio;
         format?: string;
         quality?: ClipQuality;
+        subtitleColor?: SubtitleColor;
+        subtitleFontFamily?: SubtitleFontFamily;
+        subtitleFontSize?: SubtitleFontSize;
+        subtitlePosition?: SubtitlePosition;
         subtitleStyle?: string;
         subtitlesEnabled?: boolean;
     };

@@ -210,6 +210,10 @@ test('clip submit stores a queued clip and dispatches processing job', function 
         'quality' => '720p',
         'rights_confirmed' => true,
         'subtitles_enabled' => true,
+        'subtitle_font_family' => 'impact',
+        'subtitle_font_size' => 'large',
+        'subtitle_position' => 'top',
+        'subtitle_color' => 'cyan',
     ])->assertAccepted()
         ->assertJsonPath('clip.status', 'queued')
         ->assertJsonPath('clip.progress', 5)
@@ -217,6 +221,10 @@ test('clip submit stores a queued clip and dispatches processing job', function 
         ->assertJsonPath('clip.quality', '720p')
         ->assertJsonPath('clip.duration', 30)
         ->assertJsonPath('clip.subtitleStatus', null)
+        ->assertJsonPath('clip.subtitleFontFamily', 'impact')
+        ->assertJsonPath('clip.subtitleFontSize', 'large')
+        ->assertJsonPath('clip.subtitlePosition', 'top')
+        ->assertJsonPath('clip.subtitleColor', 'cyan')
         ->assertJsonPath('clip.downloadUrl', null);
 
     $clip = Clip::query()->first();
@@ -227,7 +235,11 @@ test('clip submit stores a queued clip and dispatches processing job', function 
         ->and($clip->end_seconds)->toBe(60)
         ->and($clip->aspect_ratio)->toBe(ClipAspectRatio::Vertical)
         ->and($clip->quality)->toBe(ClipQuality::P720)
-        ->and($clip->subtitles_enabled)->toBeTrue();
+        ->and($clip->subtitles_enabled)->toBeTrue()
+        ->and($clip->subtitle_font_family)->toBe('impact')
+        ->and($clip->subtitle_font_size)->toBe('large')
+        ->and($clip->subtitle_position)->toBe('top')
+        ->and($clip->subtitle_color)->toBe('cyan');
 
     Queue::assertPushed(ProcessClip::class, fn (ProcessClip $job): bool => $job->clipId === $clip->id);
 });
@@ -259,9 +271,20 @@ test('clip submit rejects invalid export options', function () {
         'end_seconds' => 20,
         'aspect_ratio' => '3:2',
         'quality' => '8k',
+        'subtitle_font_family' => 'comic-sans',
+        'subtitle_font_size' => 'huge',
+        'subtitle_position' => 'left',
+        'subtitle_color' => 'purple',
         'rights_confirmed' => true,
     ])->assertUnprocessable()
-        ->assertJsonValidationErrors(['aspect_ratio', 'quality']);
+        ->assertJsonValidationErrors([
+            'aspect_ratio',
+            'quality',
+            'subtitle_font_family',
+            'subtitle_font_size',
+            'subtitle_position',
+            'subtitle_color',
+        ]);
 
     Queue::assertNothingPushed();
     Process::assertDidntRun('*');
@@ -692,6 +715,47 @@ test('subtitle burner writes styled ass tuned for vertical clips', function () {
     File::deleteDirectory($workDirectory);
 });
 
+test('subtitle burner applies manual text options to styled ass output', function () {
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    config(['freekliping.subtitle_language' => 'id']);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'aspect_ratio' => ClipAspectRatio::Vertical,
+        'subtitles_enabled' => true,
+        'subtitle_style' => 'classic',
+        'subtitle_font_family' => 'impact',
+        'subtitle_font_size' => 'large',
+        'subtitle_position' => 'top',
+        'subtitle_color' => 'cyan',
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $workDirectory = storage_path("app/clip-processing/{$clip->uuid}");
+    File::ensureDirectoryExists($workDirectory);
+    File::put("{$workDirectory}/subtitle.id.srt", "1\n00:00:30,000 --> 00:00:32,500\nHalo dunia\n");
+
+    $subtitlePath = app(SubtitleBurner::class)->prepare($clip, $workDirectory, 27);
+    $content = File::get($subtitlePath);
+
+    expect($content)
+        ->toContain('Style: FreeKlipingBase,Impact,81,&H00FFE15A,&H00FFE15A,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,6,0,8,86,86,187,1')
+        ->toContain('Dialogue: 0,0:00:03.00,0:00:05.50,FreeKlipingBase,,0000,0000,0000,,Halo dunia');
+
+    File::deleteDirectory($workDirectory);
+});
+
 test('subtitle burner ignores malformed srt cues without writing styled ass', function () {
     Process::preventStrayProcesses();
     Process::fake([
@@ -914,6 +978,32 @@ test('completed clips can be downloaded with a signed url', function () {
 
     $this->get(URL::temporarySignedRoute('clips.download', now()->addHour(), ['clip' => $clip]))
         ->assertOk();
+});
+
+test('completed clips can be previewed inline with a signed url', function () {
+    Storage::fake('local');
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'status' => ClipStatus::Completed,
+        'progress' => 100,
+        'output_disk' => 'local',
+        'output_path' => 'clips/test.mp4',
+        'output_size_bytes' => 9,
+        'output_expires_at' => now()->addHour(),
+    ]);
+
+    Storage::disk('local')->put('clips/test.mp4', 'clip-file');
+
+    $this->get(URL::temporarySignedRoute('clips.preview', now()->addHour(), ['clip' => $clip]))
+        ->assertOk()
+        ->assertHeader('content-type', 'video/mp4');
 });
 
 test('completed clip filename can be updated', function () {

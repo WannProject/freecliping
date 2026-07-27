@@ -223,6 +223,10 @@ function RecommendationCard({
         quality,
         subtitlesEnabled,
         subtitleStyle,
+        subtitleFontFamily: 'dejavu-sans',
+        subtitleFontSize: 'medium',
+        subtitlePosition: 'bottom',
+        subtitleColor: 'white',
     };
 
     return (

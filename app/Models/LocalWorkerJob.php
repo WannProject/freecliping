@@ -25,6 +25,10 @@ use Illuminate\Support\Str;
  * @property ClipQuality $quality
  * @property bool $subtitles_enabled
  * @property SubtitleStyle $subtitle_style
+ * @property string $subtitle_font_family
+ * @property string $subtitle_font_size
+ * @property string $subtitle_position
+ * @property string $subtitle_color
  * @property bool $sync_output
  * @property LocalWorkerJobStatus $status
  * @property int $progress
@@ -53,6 +57,10 @@ class LocalWorkerJob extends Model
         'quality',
         'subtitles_enabled',
         'subtitle_style',
+        'subtitle_font_family',
+        'subtitle_font_size',
+        'subtitle_position',
+        'subtitle_color',
         'sync_output',
         'status',
         'progress',
@@ -74,6 +82,10 @@ class LocalWorkerJob extends Model
         'quality' => 'source',
         'subtitles_enabled' => false,
         'subtitle_style' => 'word-highlight',
+        'subtitle_font_family' => 'dejavu-sans',
+        'subtitle_font_size' => 'medium',
+        'subtitle_position' => 'bottom',
+        'subtitle_color' => 'white',
         'sync_output' => false,
         'status' => 'queued',
         'progress' => 0,

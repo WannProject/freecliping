@@ -34,6 +34,10 @@ class LocalWorkerJobController extends Controller
             'quality' => $request->enum('quality', ClipQuality::class) ?? ClipQuality::Source,
             'subtitles_enabled' => (bool) $request->boolean('subtitles_enabled'),
             'subtitle_style' => $request->enum('subtitle_style', SubtitleStyle::class) ?? SubtitleStyle::WordHighlight,
+            'subtitle_font_family' => Arr::get($validated, 'subtitle_font_family', 'dejavu-sans'),
+            'subtitle_font_size' => Arr::get($validated, 'subtitle_font_size', 'medium'),
+            'subtitle_position' => Arr::get($validated, 'subtitle_position', 'bottom'),
+            'subtitle_color' => Arr::get($validated, 'subtitle_color', 'white'),
             'sync_output' => (bool) $request->boolean('sync_output'),
             'status' => LocalWorkerJobStatus::Queued,
             'progress' => 0,
@@ -127,6 +131,10 @@ class LocalWorkerJobController extends Controller
                 'format' => 'mp4',
                 'subtitlesEnabled' => $job->subtitles_enabled,
                 'subtitleStyle' => $job->subtitles_enabled ? $job->subtitle_style->value : 'off',
+                'subtitleFontFamily' => $job->subtitle_font_family,
+                'subtitleFontSize' => $job->subtitle_font_size,
+                'subtitlePosition' => $job->subtitle_position,
+                'subtitleColor' => $job->subtitle_color,
             ],
             'output' => [
                 'defaultFileName' => sprintf(

@@ -2,6 +2,9 @@ import { cn } from '@/lib/utils';
 import {
     aspectRatioLabel,
     qualityLabel,
+    subtitleFontFamilyLabel,
+    subtitleFontSizeLabel,
+    subtitlePositionLabel,
     subtitleStyleLabel,
 } from '../clip-editor.constants';
 import type { ClipRange, ExportOptions } from '../clip-editor.types';
@@ -48,7 +51,7 @@ export function ExportSummary({
             <span className="text-muted-foreground">&middot;</span>
             <span className="text-text-secondary">
                 {options.subtitlesEnabled
-                    ? `Subtitles · ${subtitleStyleLabel(options.subtitleStyle)}`
+                    ? `Subtitles · ${subtitleStyleLabel(options.subtitleStyle)} · ${subtitleFontFamilyLabel(options.subtitleFontFamily)} · ${subtitleFontSizeLabel(options.subtitleFontSize)} · ${subtitlePositionLabel(options.subtitlePosition)}`
                     : 'No subtitles'}
             </span>
         </p>

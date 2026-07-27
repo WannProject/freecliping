@@ -22,6 +22,7 @@ Route::prefix('clips')
         Route::post('/', [ClipController::class, 'store'])->name('store');
         Route::get('{clip}', [ClipController::class, 'show'])->name('show');
         Route::patch('{clip}/filename', [ClipController::class, 'updateFilename'])->name('filename.update');
+        Route::get('{clip}/preview', [ClipController::class, 'preview'])->middleware('signed')->name('preview');
         Route::get('{clip}/download', [ClipController::class, 'download'])->middleware('signed')->name('download');
     });
 
