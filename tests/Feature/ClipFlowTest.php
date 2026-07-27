@@ -217,6 +217,7 @@ test('clip submit stores a queued clip and dispatches processing job', function 
     ])->assertAccepted()
         ->assertJsonPath('clip.status', 'queued')
         ->assertJsonPath('clip.progress', 5)
+        ->assertJsonPath('clip.queuedSeconds', 0)
         ->assertJsonPath('clip.aspectRatio', '9:16')
         ->assertJsonPath('clip.quality', '720p')
         ->assertJsonPath('clip.duration', 30)

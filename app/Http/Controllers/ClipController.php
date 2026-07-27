@@ -189,6 +189,7 @@ class ClipController extends Controller
             'uuid' => $clip->uuid,
             'status' => $clip->status->value,
             'progress' => $clip->progress,
+            'queuedSeconds' => $this->queuedSeconds($clip),
             'errorMessage' => $clip->error_message,
             'fileName' => $clip->fileName(),
             'aspectRatio' => $clip->aspect_ratio->value,
@@ -207,6 +208,15 @@ class ClipController extends Controller
             'previewUrl' => $clip->previewUrl(),
             'statusUrl' => route('clips.show', $clip),
         ];
+    }
+
+    private function queuedSeconds(Clip $clip): int
+    {
+        if ($clip->status !== ClipStatus::Queued || ! $clip->created_at) {
+            return 0;
+        }
+
+        return max(0, (int) $clip->created_at->diffInSeconds(now()));
     }
 
     private function normalizeFileName(string $fileName): string

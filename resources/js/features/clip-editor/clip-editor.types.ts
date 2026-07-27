@@ -85,6 +85,7 @@ export interface ClipPayload {
     fileName: string;
     progress: number;
     quality: ClipQuality;
+    queuedSeconds: number;
     previewUrl: string | null;
     sizeMb: number | null;
     status: 'queued' | 'processing' | 'completed' | 'failed';

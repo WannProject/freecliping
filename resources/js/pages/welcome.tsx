@@ -124,6 +124,9 @@ export default function Welcome({
         subtitleColor: 'white',
     });
     const [progress, setProgress] = useState(0);
+    const [generationStatus, setGenerationStatus] =
+        useState<ClipPayload['status']>('queued');
+    const [queuedSeconds, setQueuedSeconds] = useState(0);
     const [analysisProgress, setAnalysisProgress] = useState(0);
     const [activeAnalysisUuid, setActiveAnalysisUuid] = useState<string | null>(
         null,
@@ -218,6 +221,8 @@ export default function Welcome({
         setAnalysisCancelling(false);
         setStage('idle');
         setProgress(0);
+        setGenerationStatus('queued');
+        setQueuedSeconds(0);
         setAnalysisProgress(0);
     }
 
@@ -576,6 +581,8 @@ export default function Welcome({
         setDownloadProgressOpen(!!recommendation);
         setStage('generating');
         setProgress(5);
+        setGenerationStatus('queued');
+        setQueuedSeconds(0);
 
         try {
             const route = storeClip();
@@ -646,6 +653,8 @@ export default function Welcome({
             const clip: ClipPayload = payload.clip;
 
             setProgress(clip.progress);
+            setGenerationStatus(clip.status);
+            setQueuedSeconds(clip.queuedSeconds);
 
             if (clip.status === 'completed' && clip.downloadUrl) {
                 clearProgressTimer();
@@ -908,6 +917,8 @@ export default function Welcome({
                                             stage === 'generating'
                                         }
                                         progress={progress}
+                                        queuedSeconds={queuedSeconds}
+                                        status={generationStatus}
                                     />
 
                                     <LocalWorkerManifestModal
@@ -1126,19 +1137,31 @@ function ClipReadyBanner({
 function DownloadProgressModal({
     open,
     progress,
+    queuedSeconds,
+    status,
 }: {
     open: boolean;
     progress: number;
+    queuedSeconds: number;
+    status: ClipPayload['status'];
 }) {
     if (!open) {
         return null;
     }
 
+    const isQueued = status === 'queued';
+    const isStaleQueue = isQueued && queuedSeconds >= 45;
+    const title = isQueued ? 'Menunggu antrian render' : 'Preparing download';
+    const description = isQueued
+        ? 'Clip sudah masuk antrian. Render akan mulai setelah worker server mengambil job ini.'
+        : 'Rendering your clip now. The download will start automatically when the file is ready.';
+    const progressLabel = isQueued ? 'Queued' : 'Rendering';
+
     return (
         <div
             role="dialog"
             aria-modal="true"
-            aria-label="Preparing download"
+            aria-label={title}
             className="fixed inset-0 z-50 grid place-items-center bg-background/72 px-4 py-6 backdrop-blur-md"
         >
             <div className="w-full max-w-[460px] rounded-lg border border-border bg-card p-5 shadow-[0_24px_80px_-44px_rgba(0,0,0,0.95)]">
@@ -1148,21 +1171,40 @@ function DownloadProgressModal({
                     </div>
                     <div className="min-w-0 flex-1">
                         <p className="text-[17px] font-semibold text-foreground">
-                            Preparing download
+                            {title}
                         </p>
                         <p className="mt-1 text-[13px] leading-relaxed text-text-secondary">
-                            Rendering your clip now. The download will start
-                            automatically when the file is ready.
+                            {description}
                         </p>
+                        {isStaleQueue ? (
+                            <p className="mt-3 rounded-md border border-amber-300/45 bg-amber-50/80 px-3 py-2 text-[12.5px] leading-relaxed text-stone-800">
+                                Render belum mulai setelah {queuedSeconds}{' '}
+                                detik. Jika ini berjalan di local, pastikan
+                                queue worker aktif lewat{' '}
+                                <span className="font-mono">
+                                    composer run dev
+                                </span>{' '}
+                                atau{' '}
+                                <span className="font-mono">
+                                    php artisan queue:work
+                                </span>
+                                .
+                            </p>
+                        ) : null}
                     </div>
                 </div>
 
                 <div className="mt-5 grid gap-2">
                     <div className="flex items-center justify-between font-mono text-[11px] text-muted-foreground">
-                        <span>Rendering</span>
+                        <span>{progressLabel}</span>
                         <span>{Math.round(progress)}%</span>
                     </div>
                     <Progress value={progress} className="h-2" />
+                    {isQueued ? (
+                        <p className="text-[11.5px] text-muted-foreground">
+                            Waktu antre {queuedSeconds} detik
+                        </p>
+                    ) : null}
                 </div>
             </div>
         </div>
