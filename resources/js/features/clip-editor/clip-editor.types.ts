@@ -63,6 +63,7 @@ export interface MetadataResponse {
 }
 
 export interface ErrorResponse {
+    analysis?: ClipAnalysisPayload | null;
     errors?: Record<string, string[]>;
     message?: string;
 }
@@ -88,7 +89,7 @@ export interface ClipResponse {
 }
 
 export type ClipAnalysisStatus =
-    'queued' | 'processing' | 'completed' | 'failed';
+    'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
 export interface ClipRecommendation {
     caption: string;
@@ -107,9 +108,11 @@ export interface ClipRecommendation {
 }
 
 export interface ClipAnalysisPayload {
+    cancelUrl: string;
     errorMessage: string | null;
     progress: number;
     recommendations: ClipRecommendation[];
+    sourceUrl: string;
     status: ClipAnalysisStatus;
     statusUrl: string;
     transcriptLanguage: string | null;

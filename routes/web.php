@@ -30,6 +30,7 @@ Route::prefix('clip-analyses')
     ->group(function () {
         Route::post('/', [ClipAnalysisController::class, 'store'])->name('store');
         Route::get('{analysis}', [ClipAnalysisController::class, 'show'])->name('show');
+        Route::patch('{analysis}/cancel', [ClipAnalysisController::class, 'cancel'])->name('cancel');
     });
 
 Route::prefix('local-worker/jobs')

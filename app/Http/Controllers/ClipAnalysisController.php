@@ -83,13 +83,40 @@ class ClipAnalysisController extends Controller
         ]);
     }
 
+    public function cancel(Request $request, ClipAnalysis $analysis): JsonResponse
+    {
+        if ($analysis->requested_ip !== $request->ip()) {
+            return response()->json([
+                'message' => 'Analisis ini tidak bisa dibatalkan dari sesi ini.',
+            ], 403);
+        }
+
+        if (in_array($analysis->status, [ClipAnalysisStatus::Queued, ClipAnalysisStatus::Processing], true)) {
+            $analysis->update([
+                'status' => ClipAnalysisStatus::Cancelled,
+                'progress' => 100,
+                'error_message' => 'Analisis video dibatalkan.',
+            ]);
+        }
+
+        return response()->json([
+            'analysis' => $this->analysisPayload($analysis->refresh()),
+        ]);
+    }
+
     private function capacityResponse(Request $request): ?JsonResponse
     {
         $pendingForIp = ClipAnalysis::query()->pendingForIp($request->ip())->count();
 
         if ($pendingForIp >= (int) config('freekliping.max_pending_analyses_per_ip', 2)) {
+            $activeAnalysis = ClipAnalysis::query()
+                ->pendingForIp($request->ip())
+                ->latest()
+                ->first();
+
             return response()->json([
                 'message' => 'Kamu masih punya analisis video yang sedang diproses. Tunggu sampai selesai sebelum menganalisis video baru.',
+                'analysis' => $activeAnalysis instanceof ClipAnalysis ? $this->analysisPayload($activeAnalysis) : null,
             ], 429);
         }
 
@@ -111,12 +138,14 @@ class ClipAnalysisController extends Controller
     {
         return [
             'uuid' => $analysis->uuid,
+            'sourceUrl' => $analysis->source_url,
             'status' => $analysis->status->value,
             'progress' => $analysis->progress,
             'errorMessage' => $analysis->error_message,
             'transcriptLanguage' => $analysis->transcript_language,
             'recommendations' => $analysis->recommendations ?? [],
             'statusUrl' => route('clip-analyses.show', $analysis),
+            'cancelUrl' => route('clip-analyses.cancel', $analysis),
             'video' => [
                 'id' => $analysis->youtube_video_id,
                 'title' => $analysis->title,

@@ -133,6 +133,93 @@ test('analysis endpoint reuses a recent completed analysis for the same video', 
     Queue::assertNothingPushed();
 });
 
+test('analysis endpoint returns the active analysis when the requester still has one running', function () {
+    Queue::fake();
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(analysisMetadataOutput()),
+    ]);
+
+    config(['freekliping.max_pending_analyses_per_ip' => 1]);
+
+    $analysis = ClipAnalysis::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Active video',
+        'channel' => 'Active channel',
+        'duration_seconds' => 120,
+        'status' => ClipAnalysisStatus::Processing,
+        'progress' => 35,
+        'requested_ip' => '127.0.0.1',
+    ]);
+
+    $this->postJson(route('clip-analyses.store'), [
+        'url' => 'https://www.youtube.com/watch?v=ysz5S6PUM-U',
+    ])->assertTooManyRequests()
+        ->assertJsonPath('analysis.uuid', $analysis->uuid)
+        ->assertJsonPath('analysis.status', 'processing')
+        ->assertJsonPath('analysis.cancelUrl', route('clip-analyses.cancel', $analysis));
+
+    Queue::assertNothingPushed();
+});
+
+test('analysis endpoint cancels a pending analysis for the same requester', function () {
+    Queue::fake();
+
+    config(['freekliping.max_pending_analyses_per_ip' => 1]);
+
+    $analysis = ClipAnalysis::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Active video',
+        'channel' => 'Active channel',
+        'duration_seconds' => 120,
+        'status' => ClipAnalysisStatus::Processing,
+        'progress' => 35,
+        'requested_ip' => '127.0.0.1',
+    ]);
+
+    $this->patchJson(route('clip-analyses.cancel', $analysis))
+        ->assertOk()
+        ->assertJsonPath('analysis.status', 'cancelled')
+        ->assertJsonPath('analysis.errorMessage', 'Analisis video dibatalkan.');
+
+    $analysis->refresh();
+
+    expect($analysis->status)->toBe(ClipAnalysisStatus::Cancelled)
+        ->and($analysis->progress)->toBe(100);
+
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(analysisMetadataOutput()),
+    ]);
+
+    $this->postJson(route('clip-analyses.store'), [
+        'url' => 'https://www.youtube.com/watch?v=ysz5S6PUM-U',
+    ])->assertAccepted();
+
+    Queue::assertPushed(ProcessClipAnalysis::class);
+});
+
+test('analysis endpoint rejects cancelling another requester analysis', function () {
+    $analysis = ClipAnalysis::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Active video',
+        'channel' => 'Active channel',
+        'duration_seconds' => 120,
+        'status' => ClipAnalysisStatus::Processing,
+        'progress' => 35,
+        'requested_ip' => '10.10.10.10',
+    ]);
+
+    $this->patchJson(route('clip-analyses.cancel', $analysis))
+        ->assertForbidden()
+        ->assertJsonPath('message', 'Analisis ini tidak bisa dibatalkan dari sesi ini.');
+
+    expect($analysis->refresh()->status)->toBe(ClipAnalysisStatus::Processing);
+});
+
 test('analysis job turns a json3 transcript into ranked recommendations', function () {
     Storage::fake('local');
     Process::preventStrayProcesses();
@@ -220,6 +307,37 @@ test('analysis job reuses cached youtube transcript without running yt-dlp', fun
     expect($analysis->status)->toBe(ClipAnalysisStatus::Completed)
         ->and($analysis->transcript_language)->toBe('id')
         ->and($analysis->recommendations)->toHaveCount(3);
+
+    Process::assertNothingRan();
+});
+
+test('analysis job does not process a cancelled analysis', function () {
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    $analysis = ClipAnalysis::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 120,
+        'status' => ClipAnalysisStatus::Cancelled,
+        'progress' => 100,
+        'error_message' => 'Analisis video dibatalkan.',
+    ]);
+
+    (new ProcessClipAnalysis($analysis->id))->handle(
+        app(YouTubeTranscriptClient::class),
+        app(WhisperTranscriber::class),
+        app(ClipMomentRecommender::class),
+    );
+
+    $analysis->refresh();
+
+    expect($analysis->status)->toBe(ClipAnalysisStatus::Cancelled)
+        ->and($analysis->error_message)->toBe('Analisis video dibatalkan.');
 
     Process::assertNothingRan();
 });

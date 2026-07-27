@@ -14,7 +14,10 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { store as analyzeVideo } from '@/actions/App/Http/Controllers/ClipAnalysisController';
+import {
+    cancel as cancelAnalysis,
+    store as analyzeVideo,
+} from '@/actions/App/Http/Controllers/ClipAnalysisController';
 import {
     store as storeClip,
     updateFilename,
@@ -26,11 +29,13 @@ import { defaultMaxClipLength } from '@/features/clip-editor/clip-editor.constan
 import type {
     ClipAnalysisPayload,
     ClipAnalysisResponse,
+    ClipAnalysisStatus,
     ClipPayload,
     ClipRange,
     ClipRecommendation,
     ClipResponse,
     ClipResult,
+    ErrorResponse,
     ExportOptions,
     FlowStage,
     LocalWorkerJobResponse,
@@ -81,6 +86,12 @@ const defaultSupportTransparency: SupportTransparency = {
     supporters: [],
 };
 
+async function jsonErrorPayload(
+    response: Response,
+): Promise<ErrorResponse | null> {
+    return (await response.json().catch(() => null)) as ErrorResponse | null;
+}
+
 export default function Welcome({
     maxClipLength: pageMaxClipLength,
     supportUrl = 'https://saweria.co/freekliping',
@@ -108,6 +119,10 @@ export default function Welcome({
     });
     const [progress, setProgress] = useState(0);
     const [analysisProgress, setAnalysisProgress] = useState(0);
+    const [activeAnalysisUuid, setActiveAnalysisUuid] = useState<string | null>(
+        null,
+    );
+    const [analysisCancelling, setAnalysisCancelling] = useState(false);
     const [recommendations, setRecommendations] = useState<
         ClipRecommendation[]
     >([]);
@@ -155,6 +170,7 @@ export default function Welcome({
         setLocalWorkerLoadingId(null);
         setRecommendations([]);
         setActiveClipTab('recommended');
+        setActiveAnalysisUuid(null);
 
         if (metadataError) {
             setMetadataError(null);
@@ -192,6 +208,8 @@ export default function Welcome({
         autoDownloadWhenReady.current = false;
         setRecommendations([]);
         setActiveClipTab('recommended');
+        setActiveAnalysisUuid(null);
+        setAnalysisCancelling(false);
         setStage('idle');
         setProgress(0);
         setAnalysisProgress(0);
@@ -237,17 +255,24 @@ export default function Welcome({
             });
 
             if (!response.ok) {
+                const payload = await jsonErrorPayload(response);
+
+                if (response.status === 429 && payload?.analysis) {
+                    setMetadataError(
+                        payload.message ||
+                            'Analisis yang masih berjalan ditampilkan di bawah.',
+                    );
+                    await startAnalysisPolling(payload.analysis);
+
+                    return;
+                }
+
                 throw new Error(
-                    await errorMessage(
-                        response,
-                        'Video metadata could not be loaded.',
-                    ),
+                    payload?.message || 'Video metadata could not be loaded.',
                 );
             }
 
             const payload = (await response.json()) as ClipAnalysisResponse;
-
-            applyAnalysisPayload(payload.analysis);
 
             if (payload.analysis.status === 'completed') {
                 completeAnalysis(payload.analysis);
@@ -255,12 +280,7 @@ export default function Welcome({
                 return;
             }
 
-            setStage('analyzing');
-            await pollAnalysisStatus(payload.analysis.statusUrl);
-
-            analysisTimer.current = window.setInterval(() => {
-                void pollAnalysisStatus(payload.analysis.statusUrl);
-            }, 1600);
+            await startAnalysisPolling(payload.analysis);
         } catch (caughtError) {
             setMetadataError(
                 caughtError instanceof Error
@@ -277,8 +297,28 @@ export default function Welcome({
             hue: hashString(analysis.video.id) % 360,
         };
 
+        setUrl(analysis.sourceUrl);
         setVideo(nextVideo);
         setAnalysisProgress(analysis.progress);
+        setActiveAnalysisUuid(analysis.uuid);
+    }
+
+    async function startAnalysisPolling(analysis: ClipAnalysisPayload) {
+        clearAnalysisTimer();
+        applyAnalysisPayload(analysis);
+        setRecommendations(analysis.recommendations);
+        setActiveClipTab('recommended');
+        setStage('analyzing');
+
+        const status = await pollAnalysisStatus(analysis.statusUrl);
+
+        if (status !== 'queued' && status !== 'processing') {
+            return;
+        }
+
+        analysisTimer.current = window.setInterval(() => {
+            void pollAnalysisStatus(analysis.statusUrl);
+        }, 1600);
     }
 
     function completeAnalysis(analysis: ClipAnalysisPayload) {
@@ -303,10 +343,13 @@ export default function Welcome({
         setActiveClipTab(
             analysis.recommendations.length > 0 ? 'recommended' : 'manual',
         );
+        setActiveAnalysisUuid(null);
         setStage('ready');
     }
 
-    async function pollAnalysisStatus(statusUrl: string) {
+    async function pollAnalysisStatus(
+        statusUrl: string,
+    ): Promise<ClipAnalysisStatus | null> {
         try {
             const response = await fetch(statusUrl, {
                 headers: {
@@ -340,6 +383,17 @@ export default function Welcome({
                 );
                 setStage(video ? 'ready' : 'idle');
             }
+
+            if (analysis.status === 'cancelled') {
+                clearAnalysisTimer();
+                setMetadataError('Analisis video dibatalkan.');
+                setStage('idle');
+                setVideo(null);
+                setRecommendations([]);
+                setActiveAnalysisUuid(null);
+            }
+
+            return analysis.status;
         } catch (caughtError) {
             clearAnalysisTimer();
             setMetadataError(
@@ -348,6 +402,50 @@ export default function Welcome({
                     : 'Video analysis status could not be read.',
             );
             setStage(video ? 'ready' : 'idle');
+
+            return null;
+        }
+    }
+
+    async function handleCancelAnalysis() {
+        if (!activeAnalysisUuid || analysisCancelling) {
+            return;
+        }
+
+        setAnalysisCancelling(true);
+
+        try {
+            const route = cancelAnalysis({ analysis: activeAnalysisUuid });
+            const response = await fetch(route.url, {
+                headers: jsonHeaders(),
+                method: route.method.toUpperCase(),
+            });
+
+            if (!response.ok) {
+                throw new Error(
+                    await errorMessage(
+                        response,
+                        'Video analysis could not be cancelled.',
+                    ),
+                );
+            }
+
+            clearAnalysisTimer();
+            setMetadataError(null);
+            setStage('idle');
+            setVideo(null);
+            setRecommendations([]);
+            setActiveAnalysisUuid(null);
+            setAnalysisProgress(0);
+            setActiveClipTab('recommended');
+        } catch (caughtError) {
+            setMetadataError(
+                caughtError instanceof Error
+                    ? caughtError.message
+                    : 'Video analysis could not be cancelled.',
+            );
+        } finally {
+            setAnalysisCancelling(false);
         }
     }
 
@@ -720,6 +818,11 @@ export default function Welcome({
                                             loading={stage === 'analyzing'}
                                             localWorkerLoadingId={
                                                 localWorkerLoadingId
+                                            }
+                                            onCancel={
+                                                analysisCancelling
+                                                    ? undefined
+                                                    : handleCancelAnalysis
                                             }
                                             onGenerate={(
                                                 recommendation,

@@ -6,6 +6,7 @@ import {
     Flame,
     LoaderCircle,
     Sparkles,
+    X,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -45,6 +46,7 @@ export function RecommendationGallery({
     forceHours,
     loading,
     localWorkerLoadingId,
+    onCancel,
     onGenerate,
     onPrepareLocal,
     onSelect,
@@ -60,6 +62,7 @@ export function RecommendationGallery({
         options: ExportOptions,
     ) => void;
     localWorkerLoadingId: string | null;
+    onCancel?: () => void;
     onPrepareLocal: (
         recommendation: ClipRecommendation,
         options: ExportOptions,
@@ -79,7 +82,7 @@ export function RecommendationGallery({
                         <div className="flex size-9 items-center justify-center rounded-md bg-brand/12 text-brand">
                             <LoaderCircle className="size-4 animate-spin" />
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                             <p className="text-[15px] font-semibold text-foreground">
                                 {loadingCopy.title}
                             </p>
@@ -87,6 +90,18 @@ export function RecommendationGallery({
                                 {loadingCopy.description}
                             </p>
                         </div>
+                        {onCancel ? (
+                            <Button
+                                className="shrink-0"
+                                onClick={onCancel}
+                                size="sm"
+                                type="button"
+                                variant="outline"
+                            >
+                                <X className="size-3.5" />
+                                Cancel
+                            </Button>
+                        ) : null}
                     </div>
                 </CardHeader>
                 <CardContent className="p-4 sm:p-5">

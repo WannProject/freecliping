@@ -37,6 +37,14 @@ class ProcessClipAnalysis implements ShouldQueue
         $analysis = ClipAnalysis::query()->findOrFail($this->analysisId);
         $workDirectory = storage_path("app/clip-analysis/{$analysis->uuid}");
 
+        if (in_array($analysis->status, [
+            ClipAnalysisStatus::Completed,
+            ClipAnalysisStatus::Failed,
+            ClipAnalysisStatus::Cancelled,
+        ], true)) {
+            return;
+        }
+
         $analysis->update([
             'status' => ClipAnalysisStatus::Processing,
             'progress' => 20,
@@ -75,6 +83,10 @@ class ProcessClipAnalysis implements ShouldQueue
                 $transcript = $whisperTranscriber->transcribe($analysis, $workDirectory);
             }
 
+            if ($this->analysisWasCancelled($analysis->id)) {
+                return;
+            }
+
             $analysis->update(['progress' => 65]);
 
             Log::info('clip analysis transcript ready', [
@@ -92,6 +104,10 @@ class ProcessClipAnalysis implements ShouldQueue
                 content: $transcript['content'],
                 durationSeconds: $analysis->duration_seconds,
             );
+
+            if ($this->analysisWasCancelled($analysis->id)) {
+                return;
+            }
 
             Log::info('clip analysis recommendations scored', [
                 'analysis' => $analysis->uuid,
@@ -126,9 +142,24 @@ class ProcessClipAnalysis implements ShouldQueue
         return (int) round((microtime(true) - $startedAt) * 1000);
     }
 
+    /**
+     * @phpstan-impure
+     */
+    private function analysisWasCancelled(int $analysisId): bool
+    {
+        return ClipAnalysis::query()
+            ->whereKey($analysisId)
+            ->where('status', ClipAnalysisStatus::Cancelled)
+            ->exists();
+    }
+
     public function failed(?Throwable $exception): void
     {
         $analysis = ClipAnalysis::query()->find($this->analysisId);
+
+        if ($analysis?->status === ClipAnalysisStatus::Cancelled) {
+            return;
+        }
 
         Log::error('clip analysis failed', [
             'analysis' => $analysis?->uuid,
