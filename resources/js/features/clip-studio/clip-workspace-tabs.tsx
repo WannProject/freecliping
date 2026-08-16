@@ -19,7 +19,7 @@ export function ClipWorkspaceTabs({
         value: ClipWorkspaceTab;
     }> = [
         {
-            count: Math.min(recommendationCount, 6),
+            count: recommendationCount,
             icon: <Sparkles className="size-4" />,
             label: 'Recommended Clips',
             value: 'recommended',
@@ -65,7 +65,7 @@ export function ClipWorkspaceTabs({
                                         : 'bg-muted text-muted-foreground',
                                 ].join(' ')}
                             >
-                                {tab.count}/6
+                                {tab.count}
                             </span>
                         ) : null}
                     </button>

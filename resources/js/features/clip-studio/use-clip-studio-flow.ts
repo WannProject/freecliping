@@ -32,6 +32,8 @@ import {
     isLikelyYoutubeUrl,
     jsonHeaders,
 } from '@/features/clip-editor/clip-editor.utils';
+import { home } from '@/routes';
+import { show as showClip } from '@/routes/clips';
 
 import type { ClipWorkspaceTab } from './types';
 
@@ -108,6 +110,77 @@ export function useClipStudioFlow(pageMaxClipLength?: number) {
         };
     }, []);
 
+    useEffect(() => {
+        const clipUuid = new URLSearchParams(window.location.search).get(
+            'clip',
+        );
+
+        if (!clipUuid) {
+            return;
+        }
+
+        const persistedClipUuid = clipUuid;
+
+        let active = true;
+
+        async function restoreClipResult() {
+            try {
+                const route = showClip({ clip: persistedClipUuid });
+                const response = await fetch(route.url, {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                if (!response.ok) {
+                    clearPersistedClipResult();
+
+                    return;
+                }
+
+                const payload = (await response.json()) as ClipResponse;
+                const clip = payload.clip;
+
+                if (
+                    !active ||
+                    clip.status !== 'completed' ||
+                    !clip.downloadUrl
+                ) {
+                    if (clip.status !== 'completed' || !clip.downloadUrl) {
+                        clearPersistedClipResult();
+                    }
+
+                    return;
+                }
+
+                setResult({
+                    aspectRatio: clip.aspectRatio,
+                    downloadUrl: clip.downloadUrl,
+                    duration: clip.duration,
+                    fileName: clip.fileName,
+                    previewUrl: clip.previewUrl,
+                    quality: clip.quality,
+                    sizeMb: clip.sizeMb,
+                    subtitleStatus: clip.subtitleStatus,
+                    uuid: clip.uuid,
+                });
+                setResultModalOpen(true);
+                setGenerationStatus('completed');
+                setProgress(100);
+                setStage('done');
+            } catch {
+                clearPersistedClipResult();
+            }
+        }
+
+        void restoreClipResult();
+
+        return () => {
+            active = false;
+        };
+    }, []);
+
     function handleUrlChange(value: string) {
         setUrl(value);
         setResult(null);
@@ -119,10 +192,23 @@ export function useClipStudioFlow(pageMaxClipLength?: number) {
         setRecommendations([]);
         setActiveClipTab('recommended');
         setActiveAnalysisUuid(null);
+        clearPersistedClipResult();
 
         if (metadataError) {
             setMetadataError(null);
         }
+    }
+
+    function clearPersistedClipResult() {
+        window.history.replaceState(window.history.state, '', home.url());
+    }
+
+    function persistClipResult(clipUuid: string) {
+        window.history.replaceState(
+            window.history.state,
+            '',
+            home.url({ query: { clip: clipUuid } }),
+        );
     }
 
     function clearProgressTimer() {
@@ -158,6 +244,7 @@ export function useClipStudioFlow(pageMaxClipLength?: number) {
         setActiveClipTab('recommended');
         setActiveAnalysisUuid(null);
         setAnalysisCancelling(false);
+        clearPersistedClipResult();
         setStage('idle');
         setProgress(0);
         setGenerationStatus('queued');
@@ -237,7 +324,7 @@ export function useClipStudioFlow(pageMaxClipLength?: number) {
                     ? caughtError.message
                     : 'Video could not be analyzed.',
             );
-            setStage(video ? 'ready' : 'idle');
+            setPostAnalysisStage(video !== null);
         }
     }
 
@@ -251,6 +338,10 @@ export function useClipStudioFlow(pageMaxClipLength?: number) {
         setVideo(nextVideo);
         setAnalysisProgress(analysis.progress);
         setActiveAnalysisUuid(analysis.uuid);
+    }
+
+    function setPostAnalysisStage(hasVideo: boolean) {
+        setStage(hasVideo ? 'ready' : 'idle');
     }
 
     async function startAnalysisPolling(analysis: ClipAnalysisPayload) {
@@ -331,7 +422,8 @@ export function useClipStudioFlow(pageMaxClipLength?: number) {
                 setMetadataError(
                     analysis.errorMessage || 'Video analysis failed.',
                 );
-                setStage(video ? 'ready' : 'idle');
+                setActiveClipTab('manual');
+                setPostAnalysisStage(true);
             }
 
             if (analysis.status === 'cancelled') {
@@ -351,7 +443,8 @@ export function useClipStudioFlow(pageMaxClipLength?: number) {
                     ? caughtError.message
                     : 'Video analysis status could not be read.',
             );
-            setStage(video ? 'ready' : 'idle');
+            setActiveClipTab(video ? 'manual' : 'recommended');
+            setPostAnalysisStage(video !== null);
 
             return null;
         }
@@ -611,6 +704,7 @@ export function useClipStudioFlow(pageMaxClipLength?: number) {
                 setResultModalOpen(true);
                 setDownloadProgressOpen(false);
                 setStage('done');
+                persistClipResult(clip.uuid);
 
                 if (autoDownloadWhenReady.current) {
                     autoDownloadWhenReady.current = false;

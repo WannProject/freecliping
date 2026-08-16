@@ -63,27 +63,68 @@ final class WhisperTranscriber
     private function downloadAudio(string $url, string $audioFile): void
     {
         try {
-            $result = Process::timeout($this->timeout())->run(array_values(array_filter([
-                $this->ytDlpBinary(),
-                $this->jsRuntimeArgument(),
-                '-f',
-                'ba/b',
-                '--extract-audio',
-                '--audio-format',
-                'm4a',
-                '--no-playlist',
-                '--no-warnings',
-                '-o',
-                $audioFile,
-                $url,
-            ])));
+            $result = $this->runAudioDownloadCommand(
+                $this->audioDownloadCommand($url, $audioFile),
+            );
         } catch (ProcessTimedOutException $exception) {
             throw new RuntimeException('yt-dlp terlalu lama mengambil audio untuk Whisper.', previous: $exception);
+        }
+
+        if ($result->failed() && $this->shouldRetryAudioDownload($result->errorOutput())) {
+            try {
+                $result = $this->runAudioDownloadCommand(
+                    $this->audioDownloadCommand(
+                        $url,
+                        $audioFile,
+                        ['youtube:player_client=android,web'],
+                    ),
+                );
+            } catch (ProcessTimedOutException $exception) {
+                throw new RuntimeException('yt-dlp terlalu lama mengambil audio untuk Whisper.', previous: $exception);
+            }
         }
 
         if ($result->failed()) {
             throw new RuntimeException('yt-dlp gagal mengambil audio untuk Whisper: '.trim($result->errorOutput()));
         }
+    }
+
+    /**
+     * @param  array<int, string>  $extractorArgs
+     * @return array<int, string>
+     */
+    private function audioDownloadCommand(string $url, string $audioFile, array $extractorArgs = []): array
+    {
+        $command = [
+            $this->ytDlpBinary(),
+            $this->jsRuntimeArgument(),
+            '-f',
+            'ba/b',
+            '--extract-audio',
+            '--audio-format',
+            'm4a',
+            '--no-playlist',
+            '--no-warnings',
+        ];
+
+        foreach ($extractorArgs as $extractorArg) {
+            $command[] = '--extractor-args';
+            $command[] = $extractorArg;
+        }
+
+        $command[] = '-o';
+        $command[] = $audioFile;
+        $command[] = $url;
+
+        return array_values(array_filter($command));
+    }
+
+    /**
+     * @param  array<int, string>  $command
+     */
+    private function runAudioDownloadCommand(array $command)
+    {
+        return Process::timeout($this->timeout())->run($command);
     }
 
     private function runWhisper(string $audioFile, string $jsonFile, string $json3File, string $srtFile, string $language): void
@@ -146,11 +187,19 @@ final class WhisperTranscriber
     {
         $binary = config('freekliping.whisper.binary');
 
-        if (! is_string($binary) || $binary === '') {
-            throw new RuntimeException('Binary Whisper belum dikonfigurasi.');
+        if (is_string($binary) && $binary !== '') {
+            if (! $this->looksLikePath($binary) || File::exists($binary)) {
+                return $binary;
+            }
         }
 
-        return $binary;
+        $fallbackBinary = $this->defaultBinary();
+
+        if (File::exists($fallbackBinary)) {
+            return $fallbackBinary;
+        }
+
+        throw new RuntimeException('Binary Whisper belum dikonfigurasi atau file binary tidak ditemukan.');
     }
 
     private function ytDlpBinary(): string
@@ -225,5 +274,26 @@ final class WhisperTranscriber
         $path = config('freekliping.whisper.cache_path');
 
         return is_string($path) && $path !== '' ? $path : 'clip-analysis/transcripts';
+    }
+
+    private function shouldRetryAudioDownload(string $errorOutput): bool
+    {
+        $message = strtolower(trim($errorOutput));
+
+        return str_contains($message, 'http error 403')
+            || str_contains($message, 'sign in to confirm')
+            || str_contains($message, 'not a bot');
+    }
+
+    private function defaultBinary(): string
+    {
+        return base_path('app/Support/Clips/whisper_transcribe.py');
+    }
+
+    private function looksLikePath(string $binary): bool
+    {
+        return str_contains($binary, '/')
+            || str_contains($binary, '\\')
+            || str_starts_with($binary, '.');
     }
 }

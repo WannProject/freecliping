@@ -52,7 +52,7 @@ export default function ClipStudio({
             <main className="min-h-screen bg-background text-foreground selection:bg-brand selection:text-brand-foreground">
                 <ClipStudioHeader supportUrl={supportUrl} />
                 <ClipStudioHero
-                    error={flow.metadataError}
+                    error={flow.video ? null : flow.metadataError}
                     loading={flow.stage === 'loading'}
                     onSubmit={flow.handleLoadVideo}
                     onUrlChange={flow.handleUrlChange}
@@ -183,16 +183,17 @@ function ClipStudioHeader({ supportUrl }: { supportUrl: string }) {
                         href={GITHUB_REPOSITORY_URL}
                         target="_blank"
                         rel="noreferrer"
-                        className="hidden h-9 items-center justify-center gap-2 rounded-md bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:bg-border sm:inline-flex"
+                        className="inline-flex size-9 items-center justify-center rounded-md bg-secondary text-foreground transition-colors hover:bg-border focus-visible:ring-2 focus-visible:ring-brand"
+                        aria-label="GitHub repository"
                     >
                         <Github className="size-3.5" />
-                        GitHub
                     </a>
                     <a
                         href={supportUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="hidden h-9 items-center justify-center gap-2 rounded-md bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:bg-border sm:inline-flex"
+                        className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-secondary px-2.5 text-sm font-medium text-foreground transition-colors hover:bg-border focus-visible:ring-2 focus-visible:ring-brand sm:px-3"
+                        aria-label="Support FreeKliping"
                     >
                         <Heart className="size-3.5 fill-current text-destructive" />
                         Support
@@ -255,15 +256,30 @@ function ClipStudioWorkspace({
     flow: ReturnType<typeof useClipStudioFlow>;
 }) {
     return (
-        <section className="px-5 pb-20 sm:px-8">
-            <div className="mx-auto max-w-6xl">
-                {flow.stage === 'idle' || flow.stage === 'loading' ? (
-                    <EmptyState loading={flow.stage === 'loading'} />
-                ) : (
-                    <ActiveClipWorkspace flow={flow} />
-                )}
-            </div>
-        </section>
+        <>
+            <section className="px-5 pb-20 sm:px-8">
+                <div className="mx-auto max-w-6xl">
+                    {flow.stage === 'idle' || flow.stage === 'loading' ? (
+                        <EmptyState loading={flow.stage === 'loading'} />
+                    ) : (
+                        <ActiveClipWorkspace flow={flow} />
+                    )}
+                </div>
+            </section>
+
+            <ClipResultModal
+                onClose={() => flow.setResultModalOpen(false)}
+                open={!!flow.result && flow.resultModalOpen}
+            >
+                {flow.result ? (
+                    <ClipResultCard
+                        onRename={flow.handleRenameClip}
+                        onReset={flow.resetState}
+                        result={flow.result}
+                    />
+                ) : null}
+            </ClipResultModal>
+        </>
     );
 }
 
@@ -311,20 +327,6 @@ function ActiveClipWorkspace({
             ) : (
                 <ManualClipWorkspace flow={flow} video={flow.video} />
             )}
-
-            <ClipResultModal
-                onClose={() => flow.setResultModalOpen(false)}
-                open={!!flow.result && flow.resultModalOpen}
-            >
-                {flow.result ? (
-                    <ClipResultCard
-                        onRename={flow.handleRenameClip}
-                        onReset={flow.resetState}
-                        result={flow.result}
-                    />
-                ) : null}
-            </ClipResultModal>
-
             <DownloadProgressModal
                 open={flow.downloadProgressOpen && flow.stage === 'generating'}
                 progress={flow.progress}
@@ -405,6 +407,7 @@ function ManualClipWorkspace({
 }) {
     return (
         <EditorPanel
+            analysisError={flow.metadataError}
             canGenerate
             clipLength={flow.clipLength}
             generationError={flow.generationError}

@@ -1,14 +1,6 @@
 import type { ReactNode } from 'react';
 
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import {
     aspectRatioOptions,
@@ -211,6 +203,10 @@ function OptionSelector<TValue extends string>({
     value: TValue;
 }) {
     const selected = options.find((option) => option.value === value);
+    const gridClassName =
+        options.length > 3
+            ? 'grid-cols-2 sm:grid-cols-4'
+            : 'grid-cols-2 sm:grid-cols-3';
 
     return (
         <div className="rounded-md border border-border bg-muted p-3">
@@ -223,45 +219,26 @@ function OptionSelector<TValue extends string>({
                     {selected?.description}
                 </span>
             </div>
-            <ToggleGroup
-                type="single"
-                disabled={disabled}
-                value={value}
-                onValueChange={(nextValue) => {
-                    if (nextValue) {
-                        onChange(nextValue as TValue);
-                    }
-                }}
-                variant="outline"
-                className="hidden w-full items-stretch overflow-hidden rounded-md border border-border bg-card sm:grid sm:grid-cols-4"
-            >
+            <div className={cn('grid gap-2', gridClassName)}>
                 {options.map((option) => (
-                    <ToggleGroupItem
+                    <button
                         key={option.value}
-                        value={option.value}
-                        aria-label={option.label}
-                        className="h-10 border-0 border-l border-border bg-transparent text-[13px] font-medium text-text-secondary first:border-l-0 hover:bg-secondary hover:text-foreground focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none focus-visible:ring-inset data-[state=on]:bg-brand data-[state=on]:text-brand-foreground data-[state=on]:hover:bg-brand data-[state=on]:hover:text-brand-foreground"
+                        type="button"
+                        aria-pressed={option.value === value}
+                        disabled={disabled}
+                        onClick={() => onChange(option.value)}
+                        title={option.description}
+                        className={cn(
+                            'flex min-h-10 items-center justify-center rounded-md border px-3 py-2 text-center text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50',
+                            option.value === value
+                                ? 'border-brand bg-brand text-brand-foreground'
+                                : 'border-border bg-card text-text-secondary hover:bg-secondary hover:text-foreground',
+                        )}
                     >
                         {option.label}
-                    </ToggleGroupItem>
+                    </button>
                 ))}
-            </ToggleGroup>
-            <Select
-                disabled={disabled}
-                value={value}
-                onValueChange={(nextValue) => onChange(nextValue as TValue)}
-            >
-                <SelectTrigger className="h-10 w-full sm:hidden">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    {options.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+            </div>
         </div>
     );
 }

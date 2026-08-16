@@ -114,6 +114,7 @@ export interface ClipRecommendation {
     endSeconds: number;
     hook: string;
     id: string;
+    modelVersion?: number;
     openingText: string;
     reason: string;
     score: number;

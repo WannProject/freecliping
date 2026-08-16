@@ -113,6 +113,7 @@ test('analysis endpoint reuses a recent completed analysis for the same video', 
                 'score' => 91,
                 'title' => 'Cached recommendation',
                 'hook' => 'Cached hook',
+                'modelVersion' => ClipMomentRecommender::RECOMMENDATION_VERSION,
                 'category' => 'Argumen kuat',
                 'emotion' => 'penasaran',
                 'reason' => 'Cached reason.',
@@ -131,6 +132,49 @@ test('analysis endpoint reuses a recent completed analysis for the same video', 
         ->assertJsonPath('analysis.recommendations.0.id', 'cached-1');
 
     Queue::assertNothingPushed();
+});
+
+test('analysis endpoint ignores cached recommendations from an older recommender version', function () {
+    Queue::fake();
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(analysisMetadataOutput()),
+    ]);
+
+    ClipAnalysis::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Cached video',
+        'channel' => 'Cached channel',
+        'duration_seconds' => 900,
+        'status' => ClipAnalysisStatus::Completed,
+        'progress' => 100,
+        'recommendations' => [
+            [
+                'id' => 'old-recommendation-1',
+                'startSeconds' => 30,
+                'endSeconds' => 58,
+                'duration' => 28,
+                'score' => 91,
+                'title' => 'Old recommendation',
+                'hook' => 'Old hook',
+                'category' => 'Argumen kuat',
+                'emotion' => 'penasaran',
+                'reason' => 'Old reason.',
+                'openingText' => 'Old hook',
+                'caption' => 'Old caption',
+                'transcriptExcerpt' => 'Old transcript',
+            ],
+        ],
+        'completed_at' => now(),
+    ]);
+
+    $this->postJson(route('clip-analyses.store'), [
+        'url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    ])->assertAccepted()
+        ->assertJsonPath('analysis.status', 'queued');
+
+    Queue::assertPushed(ProcessClipAnalysis::class);
 });
 
 test('analysis endpoint returns the active analysis when the requester still has one running', function () {
@@ -252,7 +296,7 @@ test('analysis job turns a json3 transcript into ranked recommendations', functi
     expect($analysis->status)->toBe(ClipAnalysisStatus::Completed)
         ->and($analysis->progress)->toBe(100)
         ->and($analysis->transcript_language)->toBe('id')
-        ->and($analysis->recommendations)->toHaveCount(3)
+        ->and(count($analysis->recommendations))->toBeGreaterThanOrEqual(3)
         ->and($analysis->recommendations[0]['score'])->toBeGreaterThan(70)
         ->and($analysis->recommendations[0]['hook'])->toContain('korupsi');
 
@@ -306,7 +350,7 @@ test('analysis job reuses cached youtube transcript without running yt-dlp', fun
 
     expect($analysis->status)->toBe(ClipAnalysisStatus::Completed)
         ->and($analysis->transcript_language)->toBe('id')
-        ->and($analysis->recommendations)->toHaveCount(3);
+        ->and(count($analysis->recommendations))->toBeGreaterThanOrEqual(3);
 
     Process::assertNothingRan();
 });
@@ -376,7 +420,7 @@ test('analysis job falls back to cached whisper transcript when youtube transcri
 
     expect($analysis->status)->toBe(ClipAnalysisStatus::Completed)
         ->and($analysis->transcript_language)->toBe('id')
-        ->and($analysis->recommendations)->toHaveCount(3);
+        ->and(count($analysis->recommendations))->toBeGreaterThanOrEqual(3);
 
     Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
         'yt-dlp',
@@ -470,6 +514,103 @@ test('whisper transcriber downloads audio, runs faster whisper, and caches json3
     File::deleteDirectory($workDirectory);
 });
 
+test('whisper transcriber falls back to bundled script when configured binary path is missing', function () {
+    Storage::fake('local');
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    config([
+        'freekliping.whisper.enabled' => true,
+        'freekliping.whisper.model' => 'base',
+        'freekliping.whisper.binary' => '/home/wann/bin/freekliping-whisper',
+        'freekliping.whisper.timeout' => 900,
+    ]);
+
+    $analysis = ClipAnalysis::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 120,
+        'status' => ClipAnalysisStatus::Queued,
+        'progress' => 5,
+    ]);
+    $workDirectory = storage_path("app/clip-analysis/{$analysis->uuid}");
+    File::ensureDirectoryExists($workDirectory);
+    File::put("{$workDirectory}/whisper.json", json_encode(['language' => 'id'], JSON_THROW_ON_ERROR));
+    File::put("{$workDirectory}/whisper.json3", analysisJson3Transcript());
+
+    app(WhisperTranscriber::class)->transcribe($analysis, $workDirectory);
+
+    Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
+        base_path('app/Support/Clips/whisper_transcribe.py'),
+        '--input',
+        "{$workDirectory}/whisper-audio.m4a",
+        '--output-json',
+        "{$workDirectory}/whisper.json",
+        '--output-json3',
+        "{$workDirectory}/whisper.json3",
+        '--output-srt',
+        "{$workDirectory}/whisper.srt",
+        '--model',
+        'base',
+        '--language',
+        'id',
+        '--device',
+        'cpu',
+        '--compute-type',
+        'int8',
+        '--beam-size',
+        '5',
+    ]);
+
+    File::deleteDirectory($workDirectory);
+});
+
+test('whisper transcriber retries audio download with fallback extractor args after youtube 403', function () {
+    Storage::fake('local');
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::sequence()
+            ->push('', 'ERROR: unable to download video data: HTTP Error 403: Forbidden', 1)
+            ->push(''),
+        'whisper-transcribe*' => Process::result(),
+    ]);
+
+    config([
+        'freekliping.whisper.enabled' => true,
+        'freekliping.whisper.model' => 'base',
+        'freekliping.whisper.binary' => 'whisper-transcribe',
+        'freekliping.whisper.timeout' => 900,
+    ]);
+
+    $analysis = ClipAnalysis::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 120,
+        'status' => ClipAnalysisStatus::Queued,
+        'progress' => 5,
+    ]);
+    $workDirectory = storage_path("app/clip-analysis/{$analysis->uuid}");
+    File::ensureDirectoryExists($workDirectory);
+    File::put("{$workDirectory}/whisper.json", json_encode(['language' => 'id'], JSON_THROW_ON_ERROR));
+    File::put("{$workDirectory}/whisper.json3", analysisJson3Transcript());
+
+    $transcript = app(WhisperTranscriber::class)->transcribe(
+        $analysis,
+        $workDirectory,
+    );
+
+    expect($transcript['language'])->toBe('id')
+        ->and($transcript['content'])->toBe(analysisJson3Transcript());
+
+    File::deleteDirectory($workDirectory);
+});
+
 test('whisper benchmark command runs the configured transcriber script', function () {
     Process::preventStrayProcesses();
     Process::fake([
@@ -491,6 +632,33 @@ test('whisper benchmark command runs the configured transcriber script', functio
     ])->assertSuccessful();
 
     Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command[0] === 'whisper-transcribe'
+        && in_array('--output-json3', $process->command, true)
+        && in_array('base', $process->command, true));
+
+    File::delete($input);
+});
+
+test('whisper benchmark command falls back to bundled script when configured binary path is missing', function () {
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    config([
+        'freekliping.whisper.binary' => '/home/wann/bin/freekliping-whisper',
+        'freekliping.whisper.model' => 'base',
+    ]);
+
+    $input = storage_path('app/clip-analysis/benchmark-audio-missing-binary.m4a');
+    File::ensureDirectoryExists(dirname($input));
+    File::put($input, 'audio');
+
+    $this->artisan('clips:whisper:benchmark', [
+        'input' => $input,
+        '--language' => 'id',
+    ])->assertSuccessful();
+
+    Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command[0] === base_path('app/Support/Clips/whisper_transcribe.py')
         && in_array('--output-json3', $process->command, true)
         && in_array('base', $process->command, true));
 
@@ -525,6 +693,32 @@ test('moment recommender skips heavily overlapping candidate windows', function 
             expect($overlapSeconds / $shortestDuration)->toBeLessThanOrEqual(0.55);
         }
     }
+});
+
+test('moment recommender returns more than six recommendations for longer videos', function () {
+    $content = json_encode([
+        'events' => collect(range(0, 29))
+            ->map(fn (int $index): array => analysisEvent(
+                $index * 30000,
+                12000,
+                longRecommendationLine($index),
+            ))
+            ->all(),
+    ], JSON_THROW_ON_ERROR);
+
+    $recommendations = app(ClipMomentRecommender::class)->recommendFromJson3(
+        $content,
+        900,
+    );
+
+    $coveredTimelineBuckets = collect($recommendations)
+        ->map(fn (array $recommendation): int => intdiv($recommendation['startSeconds'], 120))
+        ->unique()
+        ->count();
+
+    expect(count($recommendations))->toBeGreaterThan(6)
+        ->toBeLessThanOrEqual(15)
+        ->and($coveredTimelineBuckets)->toBeGreaterThanOrEqual(5);
 });
 
 test('analysis status endpoint returns recommendations', function () {
@@ -607,4 +801,12 @@ function analysisEvent(int $startMs, int $durationMs, string $text): array
             ['utf8' => $text],
         ],
     ];
+}
+
+function longRecommendationLine(int $index): string
+{
+    return sprintf(
+        'Faktanya ada %d langkah yang harus dibenahi sekarang, tapi pejabat sering bilang ini normal padahal rakyat makin marah dan solusi transparan harus segera dibuka.',
+        $index + 1,
+    );
 }

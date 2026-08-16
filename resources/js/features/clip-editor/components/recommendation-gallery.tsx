@@ -115,8 +115,6 @@ export function RecommendationGallery({
         return null;
     }
 
-    const visibleRecommendations = recommendations.slice(0, 6);
-
     return (
         <section className="grid gap-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -126,20 +124,21 @@ export function RecommendationGallery({
                         Recommended Clips
                     </p>
                     <p className="mt-1 text-[13px] text-text-secondary">
-                        Review the top 6 moments, adjust export settings, then
-                        render only the clip you want.
+                        Review the strongest moments picked from the transcript,
+                        adjust export settings, then render only the clip you
+                        want.
                     </p>
                 </div>
                 <Badge
                     variant="outline"
                     className="w-fit border-ring bg-muted font-mono text-muted-foreground"
                 >
-                    {visibleRecommendations.length}/6 picks
+                    {recommendations.length} picks
                 </Badge>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {visibleRecommendations.map((recommendation, index) => (
+                {recommendations.map((recommendation, index) => (
                     <RecommendationCard
                         disabled={disabled}
                         forceHours={forceHours}

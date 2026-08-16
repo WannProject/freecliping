@@ -89,7 +89,13 @@ class BenchmarkWhisper extends Command
     {
         $binary = config('freekliping.whisper.binary');
 
-        return is_string($binary) && $binary !== '' ? $binary : base_path('app/Support/Clips/whisper_transcribe.py');
+        if (is_string($binary) && $binary !== '') {
+            if (! $this->looksLikePath($binary) || File::exists($binary)) {
+                return $binary;
+            }
+        }
+
+        return $this->defaultBinary();
     }
 
     private function optionString(string $option, string $configKey, string $fallback): string
@@ -134,5 +140,17 @@ class BenchmarkWhisper extends Command
     private function elapsedMs(float $startedAt): int
     {
         return (int) round((microtime(true) - $startedAt) * 1000);
+    }
+
+    private function defaultBinary(): string
+    {
+        return base_path('app/Support/Clips/whisper_transcribe.py');
+    }
+
+    private function looksLikePath(string $binary): bool
+    {
+        return str_contains($binary, '/')
+            || str_contains($binary, '\\')
+            || str_starts_with($binary, '.');
     }
 }

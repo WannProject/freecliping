@@ -7,6 +7,7 @@ use App\Enums\ClipAnalysisStatus;
 use App\Http\Requests\StoreClipAnalysisRequest;
 use App\Jobs\ProcessClipAnalysis;
 use App\Models\ClipAnalysis;
+use App\Support\Clips\ClipMomentRecommender;
 use App\Support\Clips\WhisperTranscriber;
 use App\Support\Clips\YouTubeMetadataClient;
 use Illuminate\Http\JsonResponse;
@@ -51,7 +52,7 @@ class ClipAnalysisController extends Controller
             ->latest()
             ->first();
 
-        if ($cached instanceof ClipAnalysis) {
+        if ($cached instanceof ClipAnalysis && $this->hasCurrentRecommendationVersion($cached)) {
             return response()->json([
                 'analysis' => $this->analysisPayload($cached),
             ]);
@@ -129,6 +130,14 @@ class ClipAnalysisController extends Controller
         }
 
         return null;
+    }
+
+    private function hasCurrentRecommendationVersion(ClipAnalysis $analysis): bool
+    {
+        $recommendation = $analysis->recommendations[0] ?? null;
+
+        return is_array($recommendation)
+            && ($recommendation['modelVersion'] ?? null) === ClipMomentRecommender::RECOMMENDATION_VERSION;
     }
 
     /**
