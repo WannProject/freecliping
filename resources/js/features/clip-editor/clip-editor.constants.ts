@@ -1,6 +1,10 @@
 import type {
     ClipAspectRatio,
     ClipQuality,
+    SubtitleColor,
+    SubtitleFontFamily,
+    SubtitleFontSize,
+    SubtitlePosition,
     SubtitleStyle,
 } from './clip-editor.types';
 
@@ -76,6 +80,78 @@ export const subtitleStyleOptions: SelectOption<SubtitleStyle>[] = [
     },
 ];
 
+export const subtitleFontFamilyOptions: SelectOption<SubtitleFontFamily>[] = [
+    {
+        description: 'Clean sans',
+        label: 'DejaVu',
+        value: 'dejavu-sans',
+    },
+    {
+        description: 'Compact',
+        label: 'Arial',
+        value: 'arial',
+    },
+    {
+        description: 'Bold hooks',
+        label: 'Impact',
+        value: 'impact',
+    },
+];
+
+export const subtitleFontSizeOptions: SelectOption<SubtitleFontSize>[] = [
+    {
+        description: 'Less cover',
+        label: 'Small',
+        value: 'small',
+    },
+    {
+        description: 'Default',
+        label: 'Medium',
+        value: 'medium',
+    },
+    {
+        description: 'Shorts style',
+        label: 'Large',
+        value: 'large',
+    },
+];
+
+export const subtitlePositionOptions: SelectOption<SubtitlePosition>[] = [
+    {
+        description: 'Above UI',
+        label: 'Bottom',
+        value: 'bottom',
+    },
+    {
+        description: 'Middle frame',
+        label: 'Center',
+        value: 'center',
+    },
+    {
+        description: 'Upper frame',
+        label: 'Top',
+        value: 'top',
+    },
+];
+
+export const subtitleColorOptions: SelectOption<SubtitleColor>[] = [
+    {
+        description: 'Neutral',
+        label: 'White',
+        value: 'white',
+    },
+    {
+        description: 'Warm hook',
+        label: 'Yellow',
+        value: 'yellow',
+    },
+    {
+        description: 'Cool accent',
+        label: 'Cyan',
+        value: 'cyan',
+    },
+];
+
 export const timelineFrameCount = 14;
 export const timelineTickCount = 7;
 
@@ -97,5 +173,33 @@ export function subtitleStyleLabel(style: SubtitleStyle): string {
     return (
         subtitleStyleOptions.find((option) => option.value === style)?.label ??
         'Highlight'
+    );
+}
+
+export function subtitleFontFamilyLabel(font: SubtitleFontFamily): string {
+    return (
+        subtitleFontFamilyOptions.find((option) => option.value === font)
+            ?.label ?? 'DejaVu'
+    );
+}
+
+export function subtitleFontSizeLabel(size: SubtitleFontSize): string {
+    return (
+        subtitleFontSizeOptions.find((option) => option.value === size)
+            ?.label ?? 'Medium'
+    );
+}
+
+export function subtitlePositionLabel(position: SubtitlePosition): string {
+    return (
+        subtitlePositionOptions.find((option) => option.value === position)
+            ?.label ?? 'Bottom'
+    );
+}
+
+export function subtitleColorLabel(color: SubtitleColor): string {
+    return (
+        subtitleColorOptions.find((option) => option.value === color)?.label ??
+        'White'
     );
 }

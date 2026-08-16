@@ -94,6 +94,15 @@ export function ClipResultCard({
             </CardHeader>
 
             <CardContent className="grid gap-5 px-5 py-5">
+                {result.previewUrl ? (
+                    <video
+                        className="aspect-video w-full rounded-md border border-border bg-black"
+                        controls
+                        preload="metadata"
+                        src={result.previewUrl}
+                    />
+                ) : null}
+
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <ResultMetric
                         label="Duration"

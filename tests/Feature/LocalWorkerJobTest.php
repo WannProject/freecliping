@@ -14,6 +14,10 @@ test('local worker job endpoint returns a runnable manifest with callback token'
         'aspect_ratio' => '9:16',
         'quality' => '720p',
         'subtitles_enabled' => true,
+        'subtitle_font_family' => 'impact',
+        'subtitle_font_size' => 'large',
+        'subtitle_position' => 'top',
+        'subtitle_color' => 'cyan',
     ]);
 
     $response->assertAccepted()
@@ -25,6 +29,10 @@ test('local worker job endpoint returns a runnable manifest with callback token'
         ->assertJsonPath('localWorkerJob.manifest.clip.durationSeconds', 30)
         ->assertJsonPath('localWorkerJob.manifest.export.aspectRatio', '9:16')
         ->assertJsonPath('localWorkerJob.manifest.export.subtitleStyle', 'word-highlight')
+        ->assertJsonPath('localWorkerJob.manifest.export.subtitleFontFamily', 'impact')
+        ->assertJsonPath('localWorkerJob.manifest.export.subtitleFontSize', 'large')
+        ->assertJsonPath('localWorkerJob.manifest.export.subtitlePosition', 'top')
+        ->assertJsonPath('localWorkerJob.manifest.export.subtitleColor', 'cyan')
         ->assertJsonPath('localWorkerJob.manifest.requirements.ffmpeg', 'bundled-or-auto-detect')
         ->assertJsonPath('localWorkerJob.manifest.callbacks.method', 'PATCH');
 
@@ -35,6 +43,10 @@ test('local worker job endpoint returns a runnable manifest with callback token'
         ->and(strlen($token))->toBe(48)
         ->and($job)->not->toBeNull()
         ->and($job->status)->toBe(LocalWorkerJobStatus::Queued)
+        ->and($job->subtitle_font_family)->toBe('impact')
+        ->and($job->subtitle_font_size)->toBe('large')
+        ->and($job->subtitle_position)->toBe('top')
+        ->and($job->subtitle_color)->toBe('cyan')
         ->and($job->worker_token_hash)->not->toBe($token)
         ->and($job->manifest['callbacks'])->not->toHaveKey('token');
 });

@@ -45,6 +45,10 @@ class StoreClipRequest extends FormRequest
             'quality' => ['sometimes', Rule::enum(ClipQuality::class)],
             'subtitles_enabled' => ['sometimes', 'boolean'],
             'subtitle_style' => ['sometimes', Rule::enum(SubtitleStyle::class)],
+            'subtitle_font_family' => ['sometimes', Rule::in(['dejavu-sans', 'arial', 'impact'])],
+            'subtitle_font_size' => ['sometimes', Rule::in(['small', 'medium', 'large'])],
+            'subtitle_position' => ['sometimes', Rule::in(['bottom', 'center', 'top'])],
+            'subtitle_color' => ['sometimes', Rule::in(['white', 'yellow', 'cyan'])],
             'rights_confirmed' => ['accepted'],
         ];
     }

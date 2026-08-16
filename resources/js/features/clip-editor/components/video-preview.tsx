@@ -3,7 +3,6 @@ import { RotateCcw, User2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { VideoMeta } from '../clip-editor.types';
 import { formatTimecode } from '../clip-editor.utils';
-import { Thumbnail } from './thumbnail';
 
 export function VideoPreview({
     onReset,
@@ -14,11 +13,12 @@ export function VideoPreview({
 }) {
     return (
         <div className="flex flex-col gap-5 overflow-hidden rounded-lg border border-border bg-card p-3 sm:flex-row sm:p-4">
-            <Thumbnail
-                className="aspect-video w-full shrink-0 rounded-md sm:w-56"
-                hue={video.hue}
-                showPlay
-                thumbnailUrl={video.thumbnailUrl}
+            <iframe
+                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="aspect-video w-full shrink-0 rounded-md border border-border bg-muted sm:w-72"
+                src={`https://www.youtube.com/embed/${video.id}`}
+                title={video.title}
             />
 
             <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-1">

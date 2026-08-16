@@ -1,17 +1,21 @@
 import type { ReactNode } from 'react';
 
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { aspectRatioOptions, qualityOptions } from '../clip-editor.constants';
+    aspectRatioOptions,
+    qualityOptions,
+    subtitleColorOptions,
+    subtitleFontFamilyOptions,
+    subtitleFontSizeOptions,
+    subtitlePositionOptions,
+} from '../clip-editor.constants';
 import type { SelectOption } from '../clip-editor.constants';
-import type { CaptionAvailability, ExportOptions } from '../clip-editor.types';
+import type {
+    CaptionAvailability,
+    ExportOptions,
+    SubtitleColor,
+} from '../clip-editor.types';
 import { SubtitleStylePicker } from './subtitle-style-picker';
 import { SubtitleToggle } from './subtitle-toggle';
 
@@ -57,14 +61,128 @@ export function ExportOptionsControls({
                 }
             />
             {options.subtitlesEnabled && captions.available ? (
-                <SubtitleStylePicker
-                    disabled={disabled}
-                    onChange={(subtitleStyle) =>
-                        onChange({ ...options, subtitleStyle })
-                    }
-                    value={options.subtitleStyle}
-                />
+                <div className="grid gap-3">
+                    <SubtitleStylePicker
+                        disabled={disabled}
+                        onChange={(subtitleStyle) =>
+                            onChange({ ...options, subtitleStyle })
+                        }
+                        value={options.subtitleStyle}
+                    />
+                    <SubtitleTextControls
+                        disabled={disabled}
+                        onChange={onChange}
+                        options={options}
+                    />
+                </div>
             ) : null}
+        </div>
+    );
+}
+
+function SubtitleTextControls({
+    disabled,
+    onChange,
+    options,
+}: {
+    disabled: boolean;
+    onChange: (options: ExportOptions) => void;
+    options: ExportOptions;
+}) {
+    return (
+        <div className="rounded-md border border-border bg-muted p-3">
+            <div className="mb-3 flex items-center gap-1.5 font-mono text-[10.5px] tracking-[0.14em] text-muted-foreground uppercase">
+                Text
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+                <OptionSelector
+                    disabled={disabled}
+                    icon={null}
+                    label="Font"
+                    onChange={(subtitleFontFamily) =>
+                        onChange({ ...options, subtitleFontFamily })
+                    }
+                    options={subtitleFontFamilyOptions}
+                    value={options.subtitleFontFamily}
+                />
+                <OptionSelector
+                    disabled={disabled}
+                    icon={null}
+                    label="Size"
+                    onChange={(subtitleFontSize) =>
+                        onChange({ ...options, subtitleFontSize })
+                    }
+                    options={subtitleFontSizeOptions}
+                    value={options.subtitleFontSize}
+                />
+                <OptionSelector
+                    disabled={disabled}
+                    icon={null}
+                    label="Position"
+                    onChange={(subtitlePosition) =>
+                        onChange({ ...options, subtitlePosition })
+                    }
+                    options={subtitlePositionOptions}
+                    value={options.subtitlePosition}
+                />
+                <SubtitleColorSelector
+                    disabled={disabled}
+                    onChange={(subtitleColor) =>
+                        onChange({ ...options, subtitleColor })
+                    }
+                    value={options.subtitleColor}
+                />
+            </div>
+        </div>
+    );
+}
+
+function SubtitleColorSelector({
+    disabled,
+    onChange,
+    value,
+}: {
+    disabled: boolean;
+    onChange: (value: SubtitleColor) => void;
+    value: SubtitleColor;
+}) {
+    return (
+        <div className="rounded-md border border-border bg-card p-3">
+            <Label className="mb-3 flex items-center gap-1.5 font-mono text-[10.5px] tracking-[0.14em] text-muted-foreground uppercase">
+                Color
+            </Label>
+            <div className="grid grid-cols-3 gap-2">
+                {subtitleColorOptions.map((option) => {
+                    const selected = option.value === value;
+
+                    return (
+                        <button
+                            key={option.value}
+                            aria-pressed={selected}
+                            className={cn(
+                                'flex h-10 items-center justify-center rounded-md border text-[12px] font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50',
+                                selected
+                                    ? 'border-brand bg-brand/10 text-brand'
+                                    : 'border-border bg-background text-text-secondary hover:bg-secondary hover:text-foreground',
+                            )}
+                            disabled={disabled}
+                            onClick={() => onChange(option.value)}
+                            title={option.description}
+                            type="button"
+                        >
+                            <span
+                                className={cn(
+                                    'mr-2 size-3 rounded-full border border-black/20',
+                                    option.value === 'white' && 'bg-white',
+                                    option.value === 'yellow' && 'bg-[#FFE15A]',
+                                    option.value === 'cyan' && 'bg-[#5AE1FF]',
+                                )}
+                            />
+                            {option.label}
+                        </button>
+                    );
+                })}
+            </div>
         </div>
     );
 }
@@ -85,6 +203,10 @@ function OptionSelector<TValue extends string>({
     value: TValue;
 }) {
     const selected = options.find((option) => option.value === value);
+    const gridClassName =
+        options.length > 3
+            ? 'grid-cols-2 sm:grid-cols-4'
+            : 'grid-cols-2 sm:grid-cols-3';
 
     return (
         <div className="rounded-md border border-border bg-muted p-3">
@@ -97,45 +219,26 @@ function OptionSelector<TValue extends string>({
                     {selected?.description}
                 </span>
             </div>
-            <ToggleGroup
-                type="single"
-                disabled={disabled}
-                value={value}
-                onValueChange={(nextValue) => {
-                    if (nextValue) {
-                        onChange(nextValue as TValue);
-                    }
-                }}
-                variant="outline"
-                className="hidden w-full items-stretch overflow-hidden rounded-md border border-border bg-card sm:grid sm:grid-cols-4"
-            >
+            <div className={cn('grid gap-2', gridClassName)}>
                 {options.map((option) => (
-                    <ToggleGroupItem
+                    <button
                         key={option.value}
-                        value={option.value}
-                        aria-label={option.label}
-                        className="h-10 border-0 border-l border-border bg-transparent text-[13px] font-medium text-text-secondary first:border-l-0 hover:bg-secondary hover:text-foreground focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none focus-visible:ring-inset data-[state=on]:bg-brand data-[state=on]:text-brand-foreground data-[state=on]:hover:bg-brand data-[state=on]:hover:text-brand-foreground"
+                        type="button"
+                        aria-pressed={option.value === value}
+                        disabled={disabled}
+                        onClick={() => onChange(option.value)}
+                        title={option.description}
+                        className={cn(
+                            'flex min-h-10 items-center justify-center rounded-md border px-3 py-2 text-center text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50',
+                            option.value === value
+                                ? 'border-brand bg-brand text-brand-foreground'
+                                : 'border-border bg-card text-text-secondary hover:bg-secondary hover:text-foreground',
+                        )}
                     >
                         {option.label}
-                    </ToggleGroupItem>
+                    </button>
                 ))}
-            </ToggleGroup>
-            <Select
-                disabled={disabled}
-                value={value}
-                onValueChange={(nextValue) => onChange(nextValue as TValue)}
-            >
-                <SelectTrigger className="h-10 w-full sm:hidden">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    {options.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+            </div>
         </div>
     );
 }

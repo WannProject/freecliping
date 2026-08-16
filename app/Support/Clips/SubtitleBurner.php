@@ -258,9 +258,12 @@ ASS;
      */
     private function wordGroup(array $words): array
     {
+        $first = $words[0] ?? ['start' => 0];
+        $last = $words[array_key_last($words)] ?? ['end' => 0];
+
         return [
-            'start' => max(0, $words[0]['start'] - 80),
-            'end' => $words[array_key_last($words)]['end'] + 160,
+            'start' => max(0, $first['start'] - 80),
+            'end' => $last['end'] + 160,
             'words' => $words,
         ];
     }
@@ -507,12 +510,12 @@ ASS;
 
     private function srtToMs(string $timestamp): int
     {
-        $hours = 0;
-        $minutes = 0;
-        $seconds = 0;
-        $milliseconds = 0;
+        $matches = [];
+        if (! preg_match('/^(\d+):(\d+):(\d+),(\d+)$/', $timestamp, $matches)) {
+            return 0;
+        }
 
-        sscanf($timestamp, '%d:%d:%d,%d', $hours, $minutes, $seconds, $milliseconds);
+        [$hours, $minutes, $seconds, $milliseconds] = array_map('intval', array_slice($matches, 1));
 
         return (($hours * 60 + $minutes) * 60 + $seconds) * 1000 + $milliseconds;
     }
@@ -617,33 +620,35 @@ ASS;
     }
 
     /**
-     * @return array{font: string, size: int, marginX: int, marginBottom: int, outline: int, shadow: int, primaryColour: string, outlineColour: string, backColour: string, bold: int, borderStyle: int, animateActive: bool, activeColour: string, inactiveColour: string}
+     * @return array{font: string, size: int, marginX: int, marginBottom: int, alignment: int, outline: int, shadow: int, primaryColour: string, outlineColour: string, backColour: string, bold: int, borderStyle: int, animateActive: bool, activeColour: string, inactiveColour: string}
      */
     private function style(Clip $clip): array
     {
         $layout = $this->layout($clip->aspect_ratio);
         $palette = $this->palette($clip->subtitle_style ?? SubtitleStyle::WordHighlight);
+        $colour = $this->subtitleColour($clip->subtitle_color);
 
         return [
-            'font' => $layout['font'],
-            'size' => $layout['size'],
+            'font' => $this->subtitleFont($clip->subtitle_font_family),
+            'size' => $this->subtitleSize($layout['size'], $clip->subtitle_font_size),
             'marginX' => $layout['marginX'],
-            'marginBottom' => $layout['marginBottom'],
+            'marginBottom' => $this->subtitleMargin($layout['marginBottom'], $clip->subtitle_position),
+            'alignment' => $this->subtitleAlignment($clip->subtitle_position),
             'outline' => $palette['outline'] ?? $layout['outline'],
             'shadow' => $palette['shadow'] ?? $layout['shadow'],
-            'primaryColour' => $palette['primaryColour'],
+            'primaryColour' => $colour,
             'outlineColour' => $palette['outlineColour'],
             'backColour' => $palette['backColour'],
             'bold' => $palette['bold'],
             'borderStyle' => $palette['borderStyle'],
             'animateActive' => $palette['animateActive'],
-            'activeColour' => $palette['activeColour'],
-            'inactiveColour' => $palette['inactiveColour'],
+            'activeColour' => $clip->subtitle_color === 'white' ? $palette['activeColour'] : $colour,
+            'inactiveColour' => $clip->subtitle_color === 'white' ? $palette['inactiveColour'] : '&H00FFFFFF',
         ];
     }
 
     /**
-     * @param  array{font: string, size: int, marginX: int, marginBottom: int, outline: int, shadow: int, primaryColour: string, outlineColour: string, backColour: string, bold: int, borderStyle: int}  $style
+     * @param  array{font: string, size: int, marginX: int, marginBottom: int, alignment: int, outline: int, shadow: int, primaryColour: string, outlineColour: string, backColour: string, bold: int, borderStyle: int}  $style
      */
     private function assStyleLine(array $style): string
     {
@@ -666,12 +671,57 @@ ASS;
             $style['borderStyle'],
             $style['outline'],
             $style['shadow'],
-            2,
+            $style['alignment'],
             $style['marginX'],
             $style['marginX'],
             $style['marginBottom'],
             1,
         ]);
+    }
+
+    private function subtitleFont(string $font): string
+    {
+        return match ($font) {
+            'arial' => 'Arial',
+            'impact' => 'Impact',
+            default => 'DejaVu Sans',
+        };
+    }
+
+    private function subtitleSize(int $baseSize, string $size): int
+    {
+        return match ($size) {
+            'small' => (int) round($baseSize * 0.86),
+            'large' => (int) round($baseSize * 1.16),
+            default => $baseSize,
+        };
+    }
+
+    private function subtitleAlignment(string $position): int
+    {
+        return match ($position) {
+            'top' => 8,
+            'center' => 5,
+            default => 2,
+        };
+    }
+
+    private function subtitleMargin(int $baseMargin, string $position): int
+    {
+        return match ($position) {
+            'top' => max(70, (int) round($baseMargin * 0.72)),
+            'center' => 0,
+            default => $baseMargin,
+        };
+    }
+
+    private function subtitleColour(string $colour): string
+    {
+        return match ($colour) {
+            'yellow' => '&H005AE1FF',
+            'cyan' => '&H00FFE15A',
+            default => '&H00FFFFFF',
+        };
     }
 
     private function assText(string $text): string

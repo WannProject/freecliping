@@ -78,6 +78,10 @@ class ClipController extends Controller
             'quality' => $request->enum('quality', ClipQuality::class) ?? ClipQuality::Source,
             'subtitles_enabled' => (bool) $request->boolean('subtitles_enabled'),
             'subtitle_style' => $request->enum('subtitle_style', SubtitleStyle::class) ?? SubtitleStyle::WordHighlight,
+            'subtitle_font_family' => $request->validated('subtitle_font_family', 'dejavu-sans'),
+            'subtitle_font_size' => $request->validated('subtitle_font_size', 'medium'),
+            'subtitle_position' => $request->validated('subtitle_position', 'bottom'),
+            'subtitle_color' => $request->validated('subtitle_color', 'white'),
             'status' => ClipStatus::Queued,
             'progress' => 5,
             'requested_ip' => $request->ip(),
@@ -134,6 +138,22 @@ class ClipController extends Controller
         );
     }
 
+    public function preview(Request $request, Clip $clip): StreamedResponse
+    {
+        abort_unless($clip->status === ClipStatus::Completed, 404);
+        abort_unless($clip->output_path && $clip->output_disk, 404);
+        abort_if($clip->output_expires_at?->isPast(), 404);
+
+        return Storage::disk($clip->output_disk)->download(
+            $clip->output_path,
+            $clip->fileName(),
+            [
+                'Content-Disposition' => 'inline; filename="'.$clip->fileName().'"',
+                'Content-Type' => 'video/mp4',
+            ],
+        );
+    }
+
     /**
      * Reject new clips before they reach yt-dlp when capacity is saturated.
      * Returns a 429 when the IP has too many in-flight clips, or a 503 when
@@ -169,6 +189,7 @@ class ClipController extends Controller
             'uuid' => $clip->uuid,
             'status' => $clip->status->value,
             'progress' => $clip->progress,
+            'queuedSeconds' => $this->queuedSeconds($clip),
             'errorMessage' => $clip->error_message,
             'fileName' => $clip->fileName(),
             'aspectRatio' => $clip->aspect_ratio->value,
@@ -176,12 +197,26 @@ class ClipController extends Controller
             'duration' => $clip->end_seconds - $clip->start_seconds,
             'subtitleStatus' => $clip->subtitle_status?->value,
             'subtitleStyle' => $clip->subtitle_style->value,
+            'subtitleFontFamily' => $clip->subtitle_font_family,
+            'subtitleFontSize' => $clip->subtitle_font_size,
+            'subtitlePosition' => $clip->subtitle_position,
+            'subtitleColor' => $clip->subtitle_color,
             'sizeMb' => $clip->output_size_bytes
                 ? round($clip->output_size_bytes / 1024 / 1024, 1)
                 : null,
             'downloadUrl' => $clip->downloadUrl(),
+            'previewUrl' => $clip->previewUrl(),
             'statusUrl' => route('clips.show', $clip),
         ];
+    }
+
+    private function queuedSeconds(Clip $clip): int
+    {
+        if ($clip->status !== ClipStatus::Queued || ! $clip->created_at) {
+            return 0;
+        }
+
+        return max(0, (int) $clip->created_at->diffInSeconds(now()));
     }
 
     private function normalizeFileName(string $fileName): string

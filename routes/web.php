@@ -3,12 +3,14 @@
 use App\Http\Controllers\ClipAnalysisController;
 use App\Http\Controllers\ClipController;
 use App\Http\Controllers\LocalWorkerJobController;
+use App\Support\SupportTransparency;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', fn () => Inertia::render('welcome', [
+Route::get('/', fn (SupportTransparency $supportTransparency) => Inertia::render('clip-studio', [
     'maxClipLength' => config('freekliping.max_clip_length'),
     'supportUrl' => config('freekliping.support_url'),
+    'supportTransparency' => $supportTransparency->forHomepage(),
 ]))->name('home');
 Route::inertia('/privacy', 'privacy')->name('privacy');
 Route::inertia('/terms', 'terms')->name('terms');
@@ -20,6 +22,7 @@ Route::prefix('clips')
         Route::post('/', [ClipController::class, 'store'])->name('store');
         Route::get('{clip}', [ClipController::class, 'show'])->name('show');
         Route::patch('{clip}/filename', [ClipController::class, 'updateFilename'])->name('filename.update');
+        Route::get('{clip}/preview', [ClipController::class, 'preview'])->middleware('signed')->name('preview');
         Route::get('{clip}/download', [ClipController::class, 'download'])->middleware('signed')->name('download');
     });
 
@@ -28,6 +31,7 @@ Route::prefix('clip-analyses')
     ->group(function () {
         Route::post('/', [ClipAnalysisController::class, 'store'])->name('store');
         Route::get('{analysis}', [ClipAnalysisController::class, 'show'])->name('show');
+        Route::patch('{analysis}/cancel', [ClipAnalysisController::class, 'cancel'])->name('cancel');
     });
 
 Route::prefix('local-worker/jobs')

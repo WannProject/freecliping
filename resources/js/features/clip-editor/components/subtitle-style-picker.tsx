@@ -94,9 +94,7 @@ function SampleLine({ style }: { style: SubtitleStyle }) {
                 {SAMPLE.map((word, index) => (
                     <span
                         key={word}
-                        className={
-                            index === 1 ? 'text-[#00E5FF]' : undefined
-                        }
+                        className={index === 1 ? 'text-[#00E5FF]' : undefined}
                     >
                         {word}{' '}
                     </span>
@@ -110,9 +108,7 @@ function SampleLine({ style }: { style: SubtitleStyle }) {
             {SAMPLE.map((word, index) => (
                 <span
                     key={word}
-                    className={
-                        index === 1 ? 'text-[#FFE15A]' : undefined
-                    }
+                    className={index === 1 ? 'text-[#FFE15A]' : undefined}
                 >
                     {word}{' '}
                 </span>

@@ -28,6 +28,7 @@ import { GenerationProgress } from './generation-progress';
 import { TimeRangeControls } from './time-range-controls';
 
 export function EditorPanel({
+    analysisError,
     canGenerate,
     clipLength,
     generationError,
@@ -42,6 +43,7 @@ export function EditorPanel({
     range,
     video,
 }: {
+    analysisError: string | null;
     canGenerate: boolean;
     clipLength: number;
     generationError: string | null;
@@ -105,6 +107,14 @@ export function EditorPanel({
             </CardHeader>
 
             <CardContent className="grid gap-5 p-4 sm:p-5">
+                {analysisError ? (
+                    <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-100">
+                        <AlertCircle className="size-4" />
+                        <AlertTitle>Recommended clips unavailable</AlertTitle>
+                        <AlertDescription>{analysisError}</AlertDescription>
+                    </Alert>
+                ) : null}
+
                 <ClipTimeline
                     duration={video.duration}
                     hue={video.hue}

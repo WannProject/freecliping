@@ -7,6 +7,8 @@ use App\Enums\ClipAnalysisStatus;
 use App\Http\Requests\StoreClipAnalysisRequest;
 use App\Jobs\ProcessClipAnalysis;
 use App\Models\ClipAnalysis;
+use App\Support\Clips\ClipMomentRecommender;
+use App\Support\Clips\WhisperTranscriber;
 use App\Support\Clips\YouTubeMetadataClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +16,7 @@ use RuntimeException;
 
 class ClipAnalysisController extends Controller
 {
-    public function store(StoreClipAnalysisRequest $request, YouTubeMetadataClient $metadataClient): JsonResponse
+    public function store(StoreClipAnalysisRequest $request, YouTubeMetadataClient $metadataClient, WhisperTranscriber $whisperTranscriber): JsonResponse
     {
         if ($overloaded = $this->capacityResponse($request)) {
             return $overloaded;
@@ -30,9 +32,9 @@ class ClipAnalysisController extends Controller
             ], $status);
         }
 
-        if (! $video->captions->available()) {
+        if (! $video->captions->available() && ! $whisperTranscriber->enabled()) {
             return response()->json([
-                'message' => 'Video ini belum punya caption/transcript yang bisa dianalisis. Nanti bisa diproses lewat Whisper.',
+                'message' => 'Video ini belum punya caption/transcript yang bisa dianalisis. Aktifkan Whisper untuk fallback transcription.',
             ], 422);
         }
 
@@ -50,7 +52,7 @@ class ClipAnalysisController extends Controller
             ->latest()
             ->first();
 
-        if ($cached instanceof ClipAnalysis) {
+        if ($cached instanceof ClipAnalysis && $this->hasCurrentRecommendationVersion($cached)) {
             return response()->json([
                 'analysis' => $this->analysisPayload($cached),
             ]);
@@ -82,13 +84,40 @@ class ClipAnalysisController extends Controller
         ]);
     }
 
+    public function cancel(Request $request, ClipAnalysis $analysis): JsonResponse
+    {
+        if ($analysis->requested_ip !== $request->ip()) {
+            return response()->json([
+                'message' => 'Analisis ini tidak bisa dibatalkan dari sesi ini.',
+            ], 403);
+        }
+
+        if (in_array($analysis->status, [ClipAnalysisStatus::Queued, ClipAnalysisStatus::Processing], true)) {
+            $analysis->update([
+                'status' => ClipAnalysisStatus::Cancelled,
+                'progress' => 100,
+                'error_message' => 'Analisis video dibatalkan.',
+            ]);
+        }
+
+        return response()->json([
+            'analysis' => $this->analysisPayload($analysis->refresh()),
+        ]);
+    }
+
     private function capacityResponse(Request $request): ?JsonResponse
     {
         $pendingForIp = ClipAnalysis::query()->pendingForIp($request->ip())->count();
 
         if ($pendingForIp >= (int) config('freekliping.max_pending_analyses_per_ip', 2)) {
+            $activeAnalysis = ClipAnalysis::query()
+                ->pendingForIp($request->ip())
+                ->latest()
+                ->first();
+
             return response()->json([
                 'message' => 'Kamu masih punya analisis video yang sedang diproses. Tunggu sampai selesai sebelum menganalisis video baru.',
+                'analysis' => $activeAnalysis instanceof ClipAnalysis ? $this->analysisPayload($activeAnalysis) : null,
             ], 429);
         }
 
@@ -103,6 +132,14 @@ class ClipAnalysisController extends Controller
         return null;
     }
 
+    private function hasCurrentRecommendationVersion(ClipAnalysis $analysis): bool
+    {
+        $recommendation = $analysis->recommendations[0] ?? null;
+
+        return is_array($recommendation)
+            && ($recommendation['modelVersion'] ?? null) === ClipMomentRecommender::RECOMMENDATION_VERSION;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -110,12 +147,14 @@ class ClipAnalysisController extends Controller
     {
         return [
             'uuid' => $analysis->uuid,
+            'sourceUrl' => $analysis->source_url,
             'status' => $analysis->status->value,
             'progress' => $analysis->progress,
             'errorMessage' => $analysis->error_message,
             'transcriptLanguage' => $analysis->transcript_language,
             'recommendations' => $analysis->recommendations ?? [],
             'statusUrl' => route('clip-analyses.show', $analysis),
+            'cancelUrl' => route('clip-analyses.cancel', $analysis),
             'video' => [
                 'id' => $analysis->youtube_video_id,
                 'title' => $analysis->title,

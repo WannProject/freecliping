@@ -7,6 +7,7 @@ use App\Enums\SubtitleStatus;
 use App\Jobs\ProcessClip;
 use App\Models\Clip;
 use App\Support\Clips\ClipProcessor;
+use App\Support\Clips\SmartCropPlanner;
 use App\Support\Clips\SubtitleBurner;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Process\PendingProcess;
@@ -26,9 +27,10 @@ test('home page exposes configured clip limits', function () {
     $this->get(route('home'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('welcome')
+            ->component('clip-studio')
             ->where('maxClipLength', 180)
-            ->where('supportUrl', 'https://saweria.co/freekliping'));
+            ->where('supportUrl', 'https://saweria.co/freekliping')
+            ->has('supportTransparency'));
 });
 
 test('metadata endpoint rejects invalid youtube urls before external calls', function () {
@@ -208,13 +210,22 @@ test('clip submit stores a queued clip and dispatches processing job', function 
         'quality' => '720p',
         'rights_confirmed' => true,
         'subtitles_enabled' => true,
+        'subtitle_font_family' => 'impact',
+        'subtitle_font_size' => 'large',
+        'subtitle_position' => 'top',
+        'subtitle_color' => 'cyan',
     ])->assertAccepted()
         ->assertJsonPath('clip.status', 'queued')
         ->assertJsonPath('clip.progress', 5)
+        ->assertJsonPath('clip.queuedSeconds', 0)
         ->assertJsonPath('clip.aspectRatio', '9:16')
         ->assertJsonPath('clip.quality', '720p')
         ->assertJsonPath('clip.duration', 30)
         ->assertJsonPath('clip.subtitleStatus', null)
+        ->assertJsonPath('clip.subtitleFontFamily', 'impact')
+        ->assertJsonPath('clip.subtitleFontSize', 'large')
+        ->assertJsonPath('clip.subtitlePosition', 'top')
+        ->assertJsonPath('clip.subtitleColor', 'cyan')
         ->assertJsonPath('clip.downloadUrl', null);
 
     $clip = Clip::query()->first();
@@ -225,7 +236,11 @@ test('clip submit stores a queued clip and dispatches processing job', function 
         ->and($clip->end_seconds)->toBe(60)
         ->and($clip->aspect_ratio)->toBe(ClipAspectRatio::Vertical)
         ->and($clip->quality)->toBe(ClipQuality::P720)
-        ->and($clip->subtitles_enabled)->toBeTrue();
+        ->and($clip->subtitles_enabled)->toBeTrue()
+        ->and($clip->subtitle_font_family)->toBe('impact')
+        ->and($clip->subtitle_font_size)->toBe('large')
+        ->and($clip->subtitle_position)->toBe('top')
+        ->and($clip->subtitle_color)->toBe('cyan');
 
     Queue::assertPushed(ProcessClip::class, fn (ProcessClip $job): bool => $job->clipId === $clip->id);
 });
@@ -257,9 +272,20 @@ test('clip submit rejects invalid export options', function () {
         'end_seconds' => 20,
         'aspect_ratio' => '3:2',
         'quality' => '8k',
+        'subtitle_font_family' => 'comic-sans',
+        'subtitle_font_size' => 'huge',
+        'subtitle_position' => 'left',
+        'subtitle_color' => 'purple',
         'rights_confirmed' => true,
     ])->assertUnprocessable()
-        ->assertJsonValidationErrors(['aspect_ratio', 'quality']);
+        ->assertJsonValidationErrors([
+            'aspect_ratio',
+            'quality',
+            'subtitle_font_family',
+            'subtitle_font_size',
+            'subtitle_position',
+            'subtitle_color',
+        ]);
 
     Queue::assertNothingPushed();
     Process::assertDidntRun('*');
@@ -451,6 +477,120 @@ test('processing job applies selected aspect ratio and quality', function () {
     ]);
 });
 
+test('smart crop planner falls back to center crop when detector is not configured', function () {
+    Process::preventStrayProcesses();
+    Process::fake();
+
+    config([
+        'freekliping.smart_crop.mode' => 'smart',
+        'freekliping.smart_crop.detector_binary' => null,
+    ]);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'aspect_ratio' => ClipAspectRatio::Vertical,
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $filter = app(SmartCropPlanner::class)->filter($clip, '/tmp/source.mp4', 3, 30);
+
+    expect($filter)->toBe('crop=min(iw\,ih*9/16):min(ih\,iw*16/9)');
+
+    Process::assertDidntRun('*');
+});
+
+test('smart crop detector script is configured as the default detector binary', function () {
+    $binary = config('freekliping.smart_crop.detector_binary');
+
+    expect($binary)
+        ->toBe(base_path('app/Support/Clips/smart_crop_detect.py'))
+        ->and(is_executable($binary))->toBeTrue();
+});
+
+test('smart crop planner creates smoothed animated crop filters from detector points', function () {
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(json_encode([
+            'points' => [
+                ['time' => 0, 'x' => 0.2, 'y' => 0.5, 'confidence' => 0.9],
+                ['time' => 6, 'x' => 0.8, 'y' => 0.5, 'confidence' => 0.9],
+            ],
+        ], JSON_THROW_ON_ERROR)),
+    ]);
+
+    config([
+        'freekliping.smart_crop.mode' => 'smart',
+        'freekliping.smart_crop.detector_binary' => 'smart-crop-detect',
+        'freekliping.smart_crop.detector_model' => '/models/yolo.onnx',
+        'freekliping.smart_crop.smoothing' => 0.5,
+    ]);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'aspect_ratio' => ClipAspectRatio::Vertical,
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $sourceFile = storage_path("app/clip-processing/{$clip->uuid}/source.mp4");
+
+    $filter = app(SmartCropPlanner::class)->filter($clip, $sourceFile, 3, 12);
+
+    expect($filter)
+        ->toStartWith('crop=min(iw\,ih*9/16):min(ih\,iw*16/9):')
+        ->toContain('if(lt(t\,6.000)\,0.200+(0.500-0.200)*(t-0.000)/6.000')
+        ->toContain('min(max(')
+        ->toContain('\,iw-ow)')
+        ->toContain('\,ih-oh)');
+
+    Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
+        'smart-crop-detect',
+        '--model=/models/yolo.onnx',
+        '--input',
+        $sourceFile,
+        '--start',
+        '3',
+        '--duration',
+        '12',
+        '--aspect-ratio',
+        '9:16',
+        '--output',
+        storage_path("app/clip-processing/{$clip->uuid}/smart-crop.json"),
+    ]);
+});
+
+test('smart crop benchmark command compares center and smart planning', function () {
+    Process::preventStrayProcesses();
+    Process::fake();
+
+    $sourceFile = storage_path('app/clip-processing/benchmark-source.mp4');
+    File::ensureDirectoryExists(dirname($sourceFile));
+    File::put($sourceFile, 'source-video');
+
+    $this->artisan('clips:smart-crop:benchmark', [
+        'source' => $sourceFile,
+        '--aspect-ratio' => '9:16',
+        '--duration' => 12,
+    ])->assertSuccessful();
+
+    Process::assertDidntRun('*');
+
+    File::delete($sourceFile);
+});
+
 test('processing job burns requested subtitles when a caption track is available', function () {
     Storage::fake('local');
     Process::preventStrayProcesses();
@@ -572,6 +712,78 @@ test('subtitle burner writes styled ass tuned for vertical clips', function () {
         ->toContain('PlayResY: 1920')
         ->toContain('Style: FreeKlipingBase,DejaVu Sans,70,&H00FFFFFF,&H00FFFFFF,&H00000000,&H7A000000,-1,0,0,0,100,100,0,0,1,5,1,2,86,86,260,1')
         ->toContain('Dialogue: 0,0:00:03.00,0:00:05.50,FreeKlipingBase,,0000,0000,0000,,Halo dunia, bro tag');
+
+    File::deleteDirectory($workDirectory);
+});
+
+test('subtitle burner applies manual text options to styled ass output', function () {
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    config(['freekliping.subtitle_language' => 'id']);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'aspect_ratio' => ClipAspectRatio::Vertical,
+        'subtitles_enabled' => true,
+        'subtitle_style' => 'classic',
+        'subtitle_font_family' => 'impact',
+        'subtitle_font_size' => 'large',
+        'subtitle_position' => 'top',
+        'subtitle_color' => 'cyan',
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $workDirectory = storage_path("app/clip-processing/{$clip->uuid}");
+    File::ensureDirectoryExists($workDirectory);
+    File::put("{$workDirectory}/subtitle.id.srt", "1\n00:00:30,000 --> 00:00:32,500\nHalo dunia\n");
+
+    $subtitlePath = app(SubtitleBurner::class)->prepare($clip, $workDirectory, 27);
+    $content = File::get($subtitlePath);
+
+    expect($content)
+        ->toContain('Style: FreeKlipingBase,Impact,81,&H00FFE15A,&H00FFE15A,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,6,0,8,86,86,187,1')
+        ->toContain('Dialogue: 0,0:00:03.00,0:00:05.50,FreeKlipingBase,,0000,0000,0000,,Halo dunia');
+
+    File::deleteDirectory($workDirectory);
+});
+
+test('subtitle burner ignores malformed srt cues without writing styled ass', function () {
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*' => Process::result(),
+    ]);
+
+    config(['freekliping.subtitle_language' => 'id']);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'subtitles_enabled' => true,
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $workDirectory = storage_path("app/clip-processing/{$clip->uuid}");
+    File::ensureDirectoryExists($workDirectory);
+    File::put("{$workDirectory}/subtitle.id.srt", "1\nnot-a-time --> also-not-a-time\n\n2\n00:00:31,000 --> 00:00:32,000\n");
+
+    expect(app(SubtitleBurner::class)->prepare($clip, $workDirectory, 27))->toBeNull();
+    expect(File::exists("{$workDirectory}/subtitle.styled.ass"))->toBeFalse();
 
     File::deleteDirectory($workDirectory);
 });
@@ -767,6 +979,32 @@ test('completed clips can be downloaded with a signed url', function () {
 
     $this->get(URL::temporarySignedRoute('clips.download', now()->addHour(), ['clip' => $clip]))
         ->assertOk();
+});
+
+test('completed clips can be previewed inline with a signed url', function () {
+    Storage::fake('local');
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'status' => ClipStatus::Completed,
+        'progress' => 100,
+        'output_disk' => 'local',
+        'output_path' => 'clips/test.mp4',
+        'output_size_bytes' => 9,
+        'output_expires_at' => now()->addHour(),
+    ]);
+
+    Storage::disk('local')->put('clips/test.mp4', 'clip-file');
+
+    $this->get(URL::temporarySignedRoute('clips.preview', now()->addHour(), ['clip' => $clip]))
+        ->assertOk()
+        ->assertHeader('content-type', 'video/mp4');
 });
 
 test('completed clip filename can be updated', function () {

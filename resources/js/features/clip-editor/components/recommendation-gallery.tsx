@@ -6,6 +6,7 @@ import {
     Flame,
     LoaderCircle,
     Sparkles,
+    X,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -45,6 +46,7 @@ export function RecommendationGallery({
     forceHours,
     loading,
     localWorkerLoadingId,
+    onCancel,
     onGenerate,
     onPrepareLocal,
     onSelect,
@@ -60,6 +62,7 @@ export function RecommendationGallery({
         options: ExportOptions,
     ) => void;
     localWorkerLoadingId: string | null;
+    onCancel?: () => void;
     onPrepareLocal: (
         recommendation: ClipRecommendation,
         options: ExportOptions,
@@ -69,6 +72,8 @@ export function RecommendationGallery({
     recommendations: ClipRecommendation[];
     video: VideoMeta;
 }) {
+    const loadingCopy = analysisLoadingCopy(progress);
+
     if (loading) {
         return (
             <Card className="gap-0 rounded-lg border-border bg-surface-2">
@@ -77,15 +82,26 @@ export function RecommendationGallery({
                         <div className="flex size-9 items-center justify-center rounded-md bg-brand/12 text-brand">
                             <LoaderCircle className="size-4 animate-spin" />
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                             <p className="text-[15px] font-semibold text-foreground">
-                                Finding recommended clips
+                                {loadingCopy.title}
                             </p>
                             <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-                                Reading transcript, scoring hooks, and checking
-                                context.
+                                {loadingCopy.description}
                             </p>
                         </div>
+                        {onCancel ? (
+                            <Button
+                                className="shrink-0"
+                                onClick={onCancel}
+                                size="sm"
+                                type="button"
+                                variant="outline"
+                            >
+                                <X className="size-3.5" />
+                                Cancel
+                            </Button>
+                        ) : null}
                     </div>
                 </CardHeader>
                 <CardContent className="p-4 sm:p-5">
@@ -99,8 +115,6 @@ export function RecommendationGallery({
         return null;
     }
 
-    const visibleRecommendations = recommendations.slice(0, 6);
-
     return (
         <section className="grid gap-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -110,20 +124,21 @@ export function RecommendationGallery({
                         Recommended Clips
                     </p>
                     <p className="mt-1 text-[13px] text-text-secondary">
-                        Review the top 6 moments, adjust export settings, then
-                        render only the clip you want.
+                        Review the strongest moments picked from the transcript,
+                        adjust export settings, then render only the clip you
+                        want.
                     </p>
                 </div>
                 <Badge
                     variant="outline"
                     className="w-fit border-ring bg-muted font-mono text-muted-foreground"
                 >
-                    {visibleRecommendations.length}/6 picks
+                    {recommendations.length} picks
                 </Badge>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {visibleRecommendations.map((recommendation, index) => (
+                {recommendations.map((recommendation, index) => (
                     <RecommendationCard
                         disabled={disabled}
                         forceHours={forceHours}
@@ -140,6 +155,31 @@ export function RecommendationGallery({
             </div>
         </section>
     );
+}
+
+function analysisLoadingCopy(progress: number): {
+    title: string;
+    description: string;
+} {
+    if (progress < 30) {
+        return {
+            title: 'Preparing analysis',
+            description: 'Starting the worker and reading video metadata.',
+        };
+    }
+
+    if (progress < 65) {
+        return {
+            title: 'Reading transcript',
+            description:
+                'Fetching captions, or transcribing audio when captions are unavailable.',
+        };
+    }
+
+    return {
+        title: 'Finding recommended clips',
+        description: 'Scoring hooks, pacing, and context.',
+    };
 }
 
 function RecommendationCard({
@@ -182,6 +222,10 @@ function RecommendationCard({
         quality,
         subtitlesEnabled,
         subtitleStyle,
+        subtitleFontFamily: 'dejavu-sans',
+        subtitleFontSize: 'medium',
+        subtitlePosition: 'bottom',
+        subtitleColor: 'white',
     };
 
     return (

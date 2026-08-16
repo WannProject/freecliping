@@ -28,6 +28,10 @@ use Illuminate\Support\Str;
  * @property bool $subtitles_enabled
  * @property SubtitleStatus|null $subtitle_status
  * @property SubtitleStyle $subtitle_style
+ * @property string $subtitle_font_family
+ * @property string $subtitle_font_size
+ * @property string $subtitle_position
+ * @property string $subtitle_color
  * @property ClipStatus $status
  * @property int $progress
  * @property string|null $output_disk
@@ -58,6 +62,10 @@ class Clip extends Model
         'subtitles_enabled',
         'subtitle_status',
         'subtitle_style',
+        'subtitle_font_family',
+        'subtitle_font_size',
+        'subtitle_position',
+        'subtitle_color',
         'output_disk',
         'output_path',
         'custom_file_name',
@@ -71,6 +79,10 @@ class Clip extends Model
         'aspect_ratio' => 'original',
         'quality' => 'source',
         'subtitle_style' => 'word-highlight',
+        'subtitle_font_family' => 'dejavu-sans',
+        'subtitle_font_size' => 'medium',
+        'subtitle_position' => 'bottom',
+        'subtitle_color' => 'white',
         'status' => 'queued',
         'progress' => 0,
     ];
@@ -136,6 +148,24 @@ class Clip extends Model
 
         return URL::temporarySignedRoute(
             'clips.download',
+            $this->output_expires_at,
+            ['clip' => $this],
+        );
+    }
+
+    public function previewUrl(): ?string
+    {
+        if (
+            $this->status !== ClipStatus::Completed
+            || ! $this->output_path
+            || ! $this->output_expires_at
+            || $this->output_expires_at->isPast()
+        ) {
+            return null;
+        }
+
+        return URL::temporarySignedRoute(
+            'clips.preview',
             $this->output_expires_at,
             ['clip' => $this],
         );
