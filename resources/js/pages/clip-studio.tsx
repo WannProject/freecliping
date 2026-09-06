@@ -145,24 +145,47 @@ function ClipStudioFooter({ supportUrl }: { supportUrl: string }) {
                     </div>
                 </div>
 
-                <nav
-                    aria-label="Legal"
-                    className="mt-4 flex items-center justify-center gap-4 border-t border-border/70 pt-3 text-[12.5px] font-medium text-muted-foreground"
-                >
-                    <Link
-                        href={privacy()}
-                        className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
+                <div className="mt-4 items-center justify-center gap-2 border-t border-border/70 pt-3 text-[12.5px] font-medium text-muted-foreground sm:flex-row sm:justify-between">
+                    <nav
+                        aria-label="Legal"
+                        className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-2"
                     >
-                        Privacy
-                    </Link>
-                    <Link
-                        href={terms()}
-                        className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
-                    >
-                        Terms
-                    </Link>
-                </nav>
+                        <Link
+                            href={privacy()}
+                            className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
+                        >
+                            Privacy
+                        </Link>
+                        <Link
+                            href={terms()}
+                            className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
+                        >
+                            Terms
+                        </Link>
+                        <a
+                            href={GITHUB_REPOSITORY_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
+                        >
+                            <Github className="size-3.5" />
+                            Source Code
+                        </a>
+                    </nav>
+                </div>
             </div>
+            <p className="mt-4 items-center justify-center gap-2 border-t border-border/70 pt-3 text-center text-[12.5px] font-medium text-muted-foreground sm:flex-row sm:justify-between">
+                Copyright (c) 2026{' '}
+                <a
+                    href={import.meta.env.VITE_DEVELOPER_WEBSITE_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-foreground hover:underline"
+                >
+                    wanndev
+                </a>
+                .
+            </p>
         </footer>
     );
 }
