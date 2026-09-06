@@ -27,3 +27,17 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+/.agents/skills
+/.claude/skills
+/.codex
+/AGENTS.md
+/CLAUDE.md
+/deployment.md
+/freekliping-prd.md
+/opencode.json
+/technical-flow.md
+/todo.md
+/.prettierrc
+/.prettierignore
+/.mcp.json
