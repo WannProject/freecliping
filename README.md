@@ -14,20 +14,6 @@
 
 FreeKliping adalah aplikasi web untuk mencari momen dari video YouTube, memilih rentang waktu, lalu mengekspor klip MP4 tanpa akun. Aplikasi ini dibangun dengan Laravel, Inertia React, Tailwind CSS, yt-dlp, dan ffmpeg.
 
-## Dukungan
-
-FreeKliping dijalankan sebagai project terbuka. Kalau sistem ini membantu, kamu bisa ikut mendukung biaya server dan maintenance melalui Saweria:
-
-```text
-https://saweria.co/freekliping
-```
-
-Developer portfolio:
-
-```text
-https://www.wanndev.my.id
-```
-
 ## Fitur
 
 - Paste link YouTube untuk mengambil metadata video.
