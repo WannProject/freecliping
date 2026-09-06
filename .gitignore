@@ -41,3 +41,6 @@ yarn-error.log
 /.prettierrc
 /.prettierignore
 /.mcp.json
+boost.json 
+.npmrc 
+pnpm-workspace.yaml

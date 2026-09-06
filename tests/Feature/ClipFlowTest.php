@@ -1051,6 +1051,84 @@ test('queued clip filename cannot be updated', function () {
         ->assertJsonPath('message', 'Nama file hanya bisa diubah setelah klip selesai diproses.');
 });
 
+test('processing job retries yt dlp with an alternative player client on a 403 stream error', function () {
+    Storage::fake('local');
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*yt-dlp*' => Process::sequence()
+            ->push(Process::result(
+                errorOutput: '[https @ 0x5578] HTTP error 403 Forbidden [in#0 @ 0x5578] Error opening input: Server returned 403 Forbidden (access denied)',
+                exitCode: 1,
+            ))
+            ->push(Process::result()),
+        '*' => Process::result(),
+    ]);
+
+    config([
+        'freekliping.download_buffer_seconds' => 3,
+        'freekliping.output_disk' => 'local',
+        'freekliping.processing_timeout' => 600,
+        'freekliping.retention_hours' => 1,
+    ]);
+
+    $clip = Clip::query()->create([
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ',
+        'youtube_video_id' => 'dQw4w9WgXcQ',
+        'title' => 'Example video',
+        'channel' => 'Example channel',
+        'duration_seconds' => 300,
+        'start_seconds' => 30,
+        'end_seconds' => 60,
+        'status' => ClipStatus::Queued,
+        'progress' => 5,
+    ]);
+
+    $workDirectory = storage_path("app/clip-processing/{$clip->uuid}");
+    File::ensureDirectoryExists($workDirectory);
+    File::put("{$workDirectory}/source.mp4", 'source-video');
+    File::put("{$workDirectory}/output.mp4", 'processed-video');
+
+    (new ProcessClip($clip->id))->handle(app(ClipProcessor::class));
+
+    $clip->refresh();
+
+    expect($clip->status)->toBe(ClipStatus::Completed)
+        ->and($clip->progress)->toBe(100)
+        ->and($clip->output_path)->toBe("clips/{$clip->uuid}.mp4");
+
+    Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
+        'yt-dlp',
+        '--js-runtimes=node',
+        '--download-sections',
+        '*00:00:27-00:01:03',
+        '-f',
+        'bv*+ba/b',
+        '--merge-output-format',
+        'mp4',
+        '--no-playlist',
+        '-o',
+        "{$workDirectory}/source.%(ext)s",
+        'https://youtu.be/dQw4w9WgXcQ',
+    ]);
+
+    Process::assertRan(fn (PendingProcess $process, ProcessResult $result): bool => $process->command === [
+        'yt-dlp',
+        '--js-runtimes=node',
+        '--download-sections',
+        '*00:00:27-00:01:03',
+        '-f',
+        'bv*+ba/b',
+        '--merge-output-format',
+        'mp4',
+        '--no-playlist',
+        '--extractor-args',
+        'youtube:player_client=android,web',
+        '-o',
+        "{$workDirectory}/source.%(ext)s",
+        'https://youtu.be/dQw4w9WgXcQ',
+    ]);
+});
+
 function ytDlpMetadataOutput(int $duration = 123, array $subtitles = [], array $automaticCaptions = []): string
 {
     return json_encode([
