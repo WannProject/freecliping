@@ -97,29 +97,82 @@ final class ClipProcessor
 
     private function runYtDlp(Clip $clip, string $sourcePattern, int $downloadStart, int $downloadEnd): void
     {
-        try {
-            $result = Process::timeout($this->processingTimeout())
-                ->run(array_filter([
-                    $this->ytDlpBinary(),
-                    $this->jsRuntimeArgument(),
-                    '--download-sections',
-                    sprintf('*%s-%s', $this->timecode($downloadStart), $this->timecode($downloadEnd)),
-                    '-f',
-                    $clip->quality->ytDlpFormat(),
-                    '--merge-output-format',
-                    'mp4',
-                    '--no-playlist',
-                    '-o',
+        $result = $this->runDownloadCommand(
+            $this->downloadCommand($clip, $sourcePattern, $downloadStart, $downloadEnd),
+        );
+
+        if ($result->failed() && $this->shouldRetryWithAlternativeClient($result->errorOutput())) {
+            // The default web player client returns IP-locked/expiring
+            // googlevideo.com stream URLs that fail with HTTP 403 when the
+            // download starts. Re-extracting with the android client avoids
+            // the IP-lock, so re-run the download with that client.
+            $result = $this->runDownloadCommand(
+                $this->downloadCommand(
+                    $clip,
                     $sourcePattern,
-                    $clip->source_url,
-                ]));
-        } catch (ProcessTimedOutException $exception) {
-            throw new RuntimeException('yt-dlp terlalu lama mengambil stream video.', previous: $exception);
+                    $downloadStart,
+                    $downloadEnd,
+                    ['youtube:player_client=android,web'],
+                ),
+            );
         }
 
         if ($result->failed()) {
             throw new RuntimeException($this->processFailureMessage('yt-dlp', $result->errorOutput()));
         }
+    }
+
+    /**
+     * @param  array<int, string>  $extractorArgs
+     * @return array<int, string>
+     */
+    private function downloadCommand(Clip $clip, string $sourcePattern, int $downloadStart, int $downloadEnd, array $extractorArgs = []): array
+    {
+        $command = [
+            $this->ytDlpBinary(),
+            $this->jsRuntimeArgument(),
+            '--download-sections',
+            sprintf('*%s-%s', $this->timecode($downloadStart), $this->timecode($downloadEnd)),
+            '-f',
+            $clip->quality->ytDlpFormat(),
+            '--merge-output-format',
+            'mp4',
+            '--no-playlist',
+        ];
+
+        foreach ($extractorArgs as $extractorArg) {
+            $command[] = '--extractor-args';
+            $command[] = $extractorArg;
+        }
+
+        $command[] = '-o';
+        $command[] = $sourcePattern;
+        $command[] = $clip->source_url;
+
+        return array_values(array_filter($command));
+    }
+
+    /**
+     * @param  array<int, string>  $command
+     */
+    private function runDownloadCommand(array $command)
+    {
+        try {
+            return Process::timeout($this->processingTimeout())->run($command);
+        } catch (ProcessTimedOutException $exception) {
+            throw new RuntimeException('yt-dlp terlalu lama mengambil stream video.', previous: $exception);
+        }
+    }
+
+    private function shouldRetryWithAlternativeClient(string $errorOutput): bool
+    {
+        $message = strtolower(trim($errorOutput));
+
+        return str_contains($message, 'http error 403')
+            || str_contains($message, '403 forbidden')
+            || str_contains($message, 'access denied')
+            || str_contains($message, 'sign in to confirm')
+            || str_contains($message, 'not a bot');
     }
 
     /**
